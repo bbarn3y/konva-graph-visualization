@@ -2,10 +2,12 @@
  * <<licensetext>>
  */
 
-import { AfterViewInit, Component } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import Konva from "konva";
 import Shape = Konva.Shape;
 import Group = Konva.Group;
+import { ShapeType } from 'src/app/_models/shape-type';
+import { RectangleShape } from 'src/app/_graphics/shapes/rectangle';
 
 @Component({
   selector: 'app-graph-editor',
@@ -13,8 +15,14 @@ import Group = Konva.Group;
   styleUrls: ['./graph-editor.component.less']
 })
 export class GraphEditorComponent implements AfterViewInit {
+  @ViewChild('container') containerElement?: ElementRef<HTMLDivElement>;
   stage?: Konva.Stage;
   selectedLayer?: Konva.Layer;
+  selectedShape?: ShapeType;
+
+
+
+  ShapeType = ShapeType;
   ngAfterViewInit(): void {
     this.initState(() => {
       this.addEventListeners();
@@ -37,11 +45,63 @@ export class GraphEditorComponent implements AfterViewInit {
         this.selectedLayer = this.stage.getLayers()[0];
         this.selectedLayer.draw();
       }
-    })
+
+      callback();
+    }, 0)
   }
 
   addEventListeners() {
-    
+    if(!this.stage) {
+      return;
+    }
+    let outerThis = this;
+    this.stage.on('click', (event) => {
+      console.log('Click event on stage!', event);
+      const pointerPosition = this.stage?.getRelativePointerPosition();
+      if (pointerPosition && this.selectedShape) {
+        this.drawShape(this.selectedShape, pointerPosition.x, pointerPosition.y);
+      }
+    })
+  }
+
+  drawShape(shapeType: ShapeType, x: number, y: number) {
+    console.log('drawShape', shapeType, x, y);
+    if(this.stage && this.selectedLayer) {
+      let shape;
+      switch(shapeType) {
+        case ShapeType.RECTANGLE:
+          shape = new RectangleShape(this.stage, x, y, 50, 50);
+          break;
+        default:
+          break;
+      }
+
+      if(!shape) {
+        return;
+      }
+
+      shape.draw(this.selectedLayer);
+    }
+  }
+
+  shapeMenuItemDragStarted(shapeType: ShapeType, e?: Event) {
+    this.selectedShape = shapeType;
+  }
+
+  onDrop(e: Event) {
+    console.log('On drop', e);
+    e.preventDefault();
+    if(!this.stage || !this.selectedShape) {
+      return;
+    }
+      this.stage.setPointersPositions(e);
+      if(this.stage.pointerPos) {
+        this.drawShape(this.selectedShape, this.stage.pointerPos?.x, this.stage.pointerPos.y)
+      }
+  }
+
+  onDragOver(e: Event) {
+    e.preventDefault();
   }
 
 }
