@@ -1,4 +1,9 @@
+/*
+ * <<licensetext>>
+ */
+
 import { Component } from '@angular/core';
+import { RouterService } from './_services/router.service';
 
 @Component({
   selector: 'app-root',
@@ -7,4 +12,8 @@ import { Component } from '@angular/core';
 })
 export class AppComponent {
   title = 'konva-graph-visualization';
+
+  constructor(public routerService: RouterService) {
+
+  }
 }
