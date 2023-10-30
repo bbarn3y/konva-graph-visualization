@@ -19,6 +19,7 @@ export class GraphEditorComponent implements AfterViewInit {
   stage?: Konva.Stage;
   selectedLayer?: Konva.Layer;
   selectedShape?: ShapeType;
+  selectedShapes: Konva.Shape[] = [];
 
 
 
@@ -55,9 +56,15 @@ export class GraphEditorComponent implements AfterViewInit {
       return;
     }
     let outerThis = this;
+
+    if(!this.selectedLayer) {
+      return;
+    }
+
     this.stage.on('click', (event) => {
       console.log('Click event on stage!', event);
       const pointerPosition = this.stage?.getRelativePointerPosition();
+      console.log('selected shape ' + this.selectedShape);
       if (pointerPosition && this.selectedShape) {
         this.drawShape(this.selectedShape, pointerPosition.x, pointerPosition.y);
       }
@@ -79,7 +86,7 @@ export class GraphEditorComponent implements AfterViewInit {
       if(!shape) {
         return;
       }
-
+      
       shape.draw(this.selectedLayer);
     }
   }
