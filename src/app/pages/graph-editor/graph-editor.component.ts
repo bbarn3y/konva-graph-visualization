@@ -64,11 +64,11 @@ export class GraphEditorComponent implements AfterViewInit {
     this.stage.on('click', (event) => {
       console.log('Click event on stage!', event);
       const pointerPosition = this.stage?.getRelativePointerPosition();
-      console.log('selected shape ' + this.selectedShape);
       if (pointerPosition && this.selectedShape) {
         this.drawShape(this.selectedShape, pointerPosition.x, pointerPosition.y);
       }
     })
+    
   }
 
   drawShape(shapeType: ShapeType, x: number, y: number) {
@@ -88,6 +88,12 @@ export class GraphEditorComponent implements AfterViewInit {
       }
       
       shape.draw(this.selectedLayer);
+      /*
+      if (shape.isSelected){
+        this.selectedShapes.push(shape.konvaRect);
+      }
+      console.log('selected shapes: ' + this.selectedShapes);
+      */
     }
   }
 
