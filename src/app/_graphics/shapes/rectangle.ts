@@ -11,7 +11,6 @@ export class RectangleShape {
     width: number;
     height: number;
     draggable: boolean;
-    isSelected: boolean;
     konvaRect: Konva.Rect;
     id?: number;
 
@@ -21,10 +20,9 @@ export class RectangleShape {
         this.y = y;
         this.width = width;
         this.height = height;
-        this.draggable = draggable;
-        this.isSelected = false;
-
+        this.draggable = draggable; 
         this.konvaRect = this.shape();
+        this.konvaRect.attrs.isSelected = false;
     }
 
     draw(layer: Konva.Layer) {
@@ -43,24 +41,8 @@ export class RectangleShape {
             strokeWidth: 4,
             draggable: this.draggable,
             type: ShapeType.RECTANGLE,
-          });
-      
-          // Now you can add event handling to the Konva.Rect
-          rect.on('click', (event) => {
-            const shape = event.target;
-            //console.log(shape);
-            console.log('Click event on shape!', event);
-
-            if (event.evt.ctrlKey) {
-                this.isSelected = !this.isSelected;
-            
-                if (shape instanceof Konva.Shape) {
-                    // Ensure that 'shape' is of type 'Shape'
-                    shape.stroke(this.isSelected ? 'yellow' : 'black')
-                }
-            }
         });
-    
+
         return rect;
     }
 }
