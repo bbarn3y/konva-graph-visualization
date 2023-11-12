@@ -11,7 +11,6 @@ export class RectangleShape {
     width: number;
     height: number;
     draggable: boolean;
-    konvaRect: Konva.Rect;
     id?: number;
 
     constructor(stage: Konva.Stage, x: number, y: number, width: number, height: number, draggable = false) {
@@ -21,17 +20,14 @@ export class RectangleShape {
         this.width = width;
         this.height = height;
         this.draggable = draggable; 
-        this.konvaRect = this.shape();
-        this.konvaRect.attrs.isSelected = false;
     }
 
     draw(layer: Konva.Layer) {
-        //layer.add(this.shape());
-        layer.add(this.konvaRect);
+        layer.add(this.shape());
     }
 
     shape() {
-        const rect = new Konva.Rect({
+        return new Konva.Rect({
             x: this.x,
             y: this.y,
             width: this.width,
@@ -40,9 +36,7 @@ export class RectangleShape {
             stroke: 'black',
             strokeWidth: 4,
             draggable: this.draggable,
-            type: ShapeType.RECTANGLE,
-        });
-
-        return rect;
+            type: ShapeType.RECTANGLE
+        })
     }
 }
