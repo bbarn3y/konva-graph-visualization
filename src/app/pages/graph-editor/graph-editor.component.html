@@ -22,7 +22,7 @@
         <span>Selected shape: {{selectedShape ? selectedShape : 'None'}}</span>
       </li>
       <li>
-        <span>A layer is selected: {{selectedLayer ? 'Selected' : 'None'}}</span>
+        <span>A layer is selected: {{selectedLayer ? 'True' : 'False'}}</span>
       </li>
     </ul>
   </div>
@@ -33,6 +33,8 @@
   tabindex="0" 
   (drop)="onDrop($event)"
   (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (dragend)="onDragEnd($event)"
   ></div>
 </div>
 
