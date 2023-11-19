@@ -8,7 +8,6 @@ import Shape = Konva.Shape;
 import Group = Konva.Group;
 import { ShapeType } from 'src/app/_models/shape-type';
 import { RectangleShape } from 'src/app/_graphics/shapes/rectangle';
-import Selectable from 'src/app/_interfaces/selectable';
 
 @Component({
   selector: 'app-graph-editor',
@@ -72,22 +71,14 @@ export class GraphEditorComponent implements AfterViewInit {
 
       const shape = event.target;
 
-      console.log(shape);
       
-      
-      if (shape instanceof Konva.Shape && this.implementsSelectable(shape) && event.evt.ctrlKey && !this.selectedShape)
+      if (shape instanceof Konva.Shape && event.evt.ctrlKey && !this.selectedShape)
       {
-        console.log("shape");
-        
-
-          shape.attrs.isSelected ? shape.selectShape() : shape.selectShape();
-        /*
         shape.attrs.isSelected = !shape.attrs.isSelected;
     
         if (shape instanceof Konva.Shape) {
             shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black')
         }
-        */
       }
       else
       {
@@ -266,9 +257,5 @@ export class GraphEditorComponent implements AfterViewInit {
     const y2 = Math.max(selectionRect.y(), selectionRect.y() + selectionRect.height());
   
     return x >= x1 && x <= x2 && y >= y1 && y <= y2;
-  }
-
-  private implementsSelectable(obj: any): obj is Selectable {
-    return 'selectShape' in obj && 'unselectShape' in obj;
   }
 }

@@ -4,9 +4,7 @@
 import Konva from "konva";
 import { Colors } from "src/app/_constants/colors";
 import {ShapeType} from "src/app/_models/shape-type";
-import Selectable from "src/app/_interfaces/selectable";
-
-export class RectangleShape implements Selectable{
+export class RectangleShape {
     stage: Konva.Stage;
     x: number;
     y: number;
@@ -40,19 +38,5 @@ export class RectangleShape implements Selectable{
             draggable: this.draggable,
             type: ShapeType.RECTANGLE
         })
-    }
-
-    selectShape(): void {
-        if (this instanceof Konva.Shape){
-            this.attrs.isSelected = true;
-            this.attrs.stroke("yellow");
-        }
-    }
-
-    unselectShape(): void {
-        if (this instanceof Konva.Shape){
-            this.attrs.isSelected = false;
-            this.stroke("black");
-        }
     }
 }
