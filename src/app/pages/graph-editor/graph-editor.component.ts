@@ -21,6 +21,8 @@ export class GraphEditorComponent implements AfterViewInit {
   selectedShape?: ShapeType;
   static IdCount = 1;
   selectRectangle?: Konva.Rect;
+  groups: Konva.Group[] = [];
+  //currentShape?: Konva.Shape;
 
 
 
@@ -76,7 +78,7 @@ export class GraphEditorComponent implements AfterViewInit {
       {
         shape.attrs.isSelected = !shape.attrs.isSelected;
     
-        if (shape instanceof Konva.Shape) {
+        if (shape instanceof Konva.Shape) {            
             shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black')
         }
       }
@@ -94,6 +96,47 @@ export class GraphEditorComponent implements AfterViewInit {
         });
       }
     })
+
+    this.stage.on('contextmenu', (e) => {
+      // prevent default behavior
+      e.evt.preventDefault();
+  
+      // Check if we are on an empty place of the stage
+      if (e.target === this.stage || this.selectedShape) {
+        return;
+      }
+  
+      const currentShape = e.target;
+  
+      // Show context menu
+      //this.showContextMenu(e.evt);
+
+      if (e.evt.button !== 2) return;
+
+      // Get the context menu element
+      const contextMenu = document.getElementById('contextMenu');
+
+      if (contextMenu) {
+        // Set position based on the mouse pointer
+        contextMenu.style.display = 'block';
+        contextMenu.style.top = e.evt.clientY + 'px';
+        contextMenu.style.left = e.evt.clientX + 'px';
+
+        
+        
+
+        // Handle context menu actions
+        document.getElementById('delete_button')?.addEventListener('click', () => {
+          console.log("inside");
+          currentShape.destroy();
+          contextMenu.style.display = 'none';
+        });
+
+        // Add other context menu options and their respective handlers as needed
+      }
+    });
+
+    
 
     this.stage.on('mousedown', (event) => {
       // Store the starting point when the left mouse button is pressed
@@ -141,6 +184,8 @@ export class GraphEditorComponent implements AfterViewInit {
         const selectedShapes = this.getAllShapesInSelection();
 
         selectedShapes.forEach(actShape => {
+          console.log('inside----------');
+          
           actShape.attrs.isSelected = true;
           actShape.stroke('yellow'); 
         });
@@ -258,4 +303,25 @@ export class GraphEditorComponent implements AfterViewInit {
   
     return x >= x1 && x <= x2 && y >= y1 && y <= y2;
   }
+/*
+  showContextMenu(event: MouseEvent): void {
+    // Get the context menu element
+    const contextMenu = document.getElementById('contextMenu');
+
+    if (contextMenu) {
+      // Set position based on the mouse pointer
+      contextMenu.style.display = 'block';
+      contextMenu.style.top = event.clientY + 'px';
+      contextMenu.style.left = event.clientX + 'px';
+
+      // Handle context menu actions
+      document.getElementById('delete_button')?.addEventListener('click', () => {
+        this.currentShape.destroy();
+        contextMenu.style.display = 'none';
+      });
+
+      // Add other context menu options and their respective handlers as needed
+    }
+  }
+  */
 }
