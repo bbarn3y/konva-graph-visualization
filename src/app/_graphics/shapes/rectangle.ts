@@ -11,13 +11,15 @@ export class RectangleShape {
     width: number;
     height: number;
     draggable: boolean;
+    id?: number;
+
     constructor(stage: Konva.Stage, x: number, y: number, width: number, height: number, draggable = false) {
         this.stage = stage;
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
-        this.draggable = draggable;
+        this.draggable = draggable; 
     }
 
     draw(layer: Konva.Layer) {

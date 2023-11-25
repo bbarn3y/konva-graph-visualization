@@ -20,6 +20,10 @@ export class GraphEditorComponent implements AfterViewInit {
   stage!: Konva.Stage;
   selectedLayer?: Konva.Layer;
   selectedShape?: ShapeType;
+  static IdCount = 1;
+  selectRectangle?: Konva.Rect;
+  groups: Konva.Group[] = [];
+  //currentShape?: Konva.Shape;
   placeHolderShape?: Konva.Shape | Konva.Group;
   gridLayer?: Konva.Layer;
   //@TODO: Put in configuration
@@ -55,10 +59,11 @@ export class GraphEditorComponent implements AfterViewInit {
       container: 'container',
       width: this.windowWidth,
       height: this.windowHeight,
-      scaleY: -1,
-      y: this.windowHeight,
-      draggable: true
+      //scaleY: 1,
+      //y: this.windowHeight,
+      // draggable: false
     })
+      console.log(this.stage.scaleY(), this.stage.y())
       if (this.stage) {
         this.gridLayer = new Konva.Layer();
         this.stage.add(this.gridLayer);
@@ -78,6 +83,11 @@ export class GraphEditorComponent implements AfterViewInit {
       return;
     }
     let outerThis = this;
+
+    if(!this.selectedLayer) {
+      return;
+    }
+
     this.stage.on('click', (event) => {
       const pointerPosition = this.stage?.getRelativePointerPosition();
       if (!pointerPosition) return;
@@ -86,14 +96,39 @@ export class GraphEditorComponent implements AfterViewInit {
       if (this.selectedShape) {
         this.drawShape(this.selectedShape, snapPos.x, snapPos.y, true);
       }
+      const shape = event.target;
+
+      
+      if (shape instanceof Konva.Shape && event.evt.ctrlKey && !this.selectedShape)
+      {
+        shape.attrs.isSelected = !shape.attrs.isSelected;
+    
+        if (shape instanceof Konva.Shape) {            
+            shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black')
+        }
+      }
+      // else
+      // {
+      //   const allShapes = this.stage?.find('Shape');
+        
+      //   if(!allShapes) return;
+
+      //   allShapes.forEach(actShape => {
+      //     actShape.attrs.isSelected = false;
+      //     if (actShape instanceof Konva.Shape){
+      //       actShape.stroke('black');
+      //     }
+      //   });
+      // }
     });
+    //@TODO: Should we need to move on stage? If yes we should move by holding middle mouse button
     //Dragging the stage
-    this.stage.on('dragmove', (e) => {
-      this.rePositionStage();
-    });
-    this.stage.on('dragend', (e) => {
-      this.rePositionStage();
-    });
+    // this.stage.on('dragmove', (e) => {
+    //   this.rePositionStage();
+    // });
+    // this.stage.on('dragend', (e) => {
+    //   this.rePositionStage();
+    // });
     //Scroll event
     this.stage.on('wheel', (event) => {
       event.evt.preventDefault();
@@ -110,7 +145,7 @@ export class GraphEditorComponent implements AfterViewInit {
       //Clamp scale to earn min-max zoom levels
       const newScale = this.clamp(newScaleTemp, 0.5, 1.4)
       //Add the clamped scale to stage
-      this.stage.scale({ x: newScale, y: -newScale });
+      this.stage.scale({ x: newScale, y: newScale });
 
       //Move the a bit based on the pointer position. (Slightly moving towards to pointer)
       //Note:Might delete this becaous of clamped stage coords
@@ -125,6 +160,102 @@ export class GraphEditorComponent implements AfterViewInit {
       this.adjustZoomLevel(newScale);
       this.stage.setPointersPositions(event);
     })
+
+    this.stage.on('contextmenu', (e) => {
+      // prevent default behavior
+      e.evt.preventDefault();
+  
+      // Check if we are on an empty place of the stage
+      if (e.target === this.stage || this.selectedShape) {
+        return;
+      }
+  
+      const currentShape = e.target;
+  
+      // Show context menu
+      if (e.evt.button !== 2) return;
+
+      // Get the context menu element
+      const contextMenu = document.getElementById('contextMenu');
+
+      if (contextMenu) {
+        // Set position based on the mouse pointer
+        contextMenu.style.display = 'block';
+        contextMenu.style.top = e.evt.clientY + 'px';
+        contextMenu.style.left = e.evt.clientX + 'px';
+
+        
+        
+
+        // Handle context menu actions
+        document.getElementById('delete_button')?.addEventListener('click', () => {
+          console.log("inside");
+          currentShape.destroy();
+          contextMenu.style.display = 'none';
+        });
+
+        // Add other context menu options and their respective handlers as needed
+      }
+    });
+
+    
+
+    this.stage.on('mousedown', (event) => {
+      // Store the starting point when the left mouse button is pressed
+      if (event.evt.button === 0 && !this.selectedShape && !event.evt.ctrlKey) {
+        
+        const pointerPosition = this.stage?.getPointerPosition();
+        if (pointerPosition) {
+          this.selectRectangle = new Konva.Rect({
+            x: pointerPosition.x,
+            y: pointerPosition.y,
+            width: 0,
+            height: 0,
+            stroke: 'blue',
+            strokeWidth: 2,
+          });
+
+          this.selectedLayer?.add(this.selectRectangle);
+          this.selectedLayer?.batchDraw();
+        }
+      }
+    });
+
+    this.stage.on('mousemove', () => {
+      // Update the position and dimensions of the temporary rectangle while dragging
+      if (this.selectRectangle) {
+        const currentMousePos = this.stage?.getPointerPosition();
+        if (currentMousePos) {
+          const width = currentMousePos.x - this.selectRectangle.x();
+          const height = currentMousePos.y - this.selectRectangle.y();
+
+          this.selectRectangle.width(width);
+          this.selectRectangle.height(height);
+
+          this.selectedLayer?.batchDraw();
+        }
+      }
+    });
+
+    this.stage.on('mouseup', (event) => {
+      
+      // Clear the selection rectangle when the left mouse button is released
+      if (event.evt.button === 0 && this.selectRectangle && !event.evt.ctrlKey) {
+
+        this.removeSelectionOnShapes();
+        const selectedShapes = this.getAllShapesInSelection();
+
+        selectedShapes.forEach(actShape => {
+          console.log('inside----------');
+          
+          actShape.attrs.isSelected = true;
+          actShape.stroke('yellow'); 
+        });
+
+        this.selectRectangle.destroy();
+        this.selectedLayer?.batchDraw();
+      }
+    });
   }
 
   drawShape(shapeType: ShapeType, x: number, y: number, draggable: boolean = false) {
@@ -155,20 +286,23 @@ export class GraphEditorComponent implements AfterViewInit {
       if(!shape) {
         return;
       }
-      this.selectedLayer.add(shape);
+      
+      shape.attrs.id = GraphEditorComponent.IdCount++;
+      console.log('id ' + shape.id);
+            this.selectedLayer.add(shape);
       return shape;
     } else {
       return;
     }
   }
-  //Calculate the topleft position of given grid with a padding
+   //Calculate the topleft position of given grid with a padding
   calculateGridSnapPosition(vector: Vector2d): Vector2d {
     const padding = 10;
     const shapeSize = this.calculateShapeSize();
     const weightedFieldSize = this.fieldSize * this.zoomLevel;
     const pos = {
       x: (Math.round(vector.x / weightedFieldSize) * weightedFieldSize + padding),
-      y: ((Math.round(vector.y / weightedFieldSize) * weightedFieldSize) + (weightedFieldSize - shapeSize.y) - weightedFieldSize - padding),
+      y: ((Math.round(vector.y / weightedFieldSize) * weightedFieldSize) + (weightedFieldSize + shapeSize.y) - weightedFieldSize - padding),
     }
     return pos;
   }
@@ -190,6 +324,7 @@ export class GraphEditorComponent implements AfterViewInit {
     if (!this.stage) return;
     this.stage.width(this.windowWidth);
     this.stage.height(this.windowHeight);
+
   }
   updateGrid() {
     if (!this.gridLayer) return;
@@ -297,12 +432,13 @@ export class GraphEditorComponent implements AfterViewInit {
       this.zoomLevel = 4;
     }
     this.updateGrid();
+    console.log(this.stage.scaleY(), this.stage.y())
   }
 
   //Reposition stage, but the coords are clamped and based on zoom level.
   rePositionStage(pos?: Vector2d) {
     if (!pos) pos = this.stage.position();
-    const range: number = this.stage.width() / this.zoomLevel;
+    const range: number = this.stage.width();
     this.stage.setPosition(
       this.clampPos(
           pos,
@@ -373,4 +509,90 @@ export class GraphEditorComponent implements AfterViewInit {
     console.log('DragEnd', e);
   }
 
+  removeSelectionOnShapes() 
+  {
+    const allShapes = this.stage?.find('Shape');
+    //console.log(allShapes?.length);
+    
+    if (!allShapes) return;
+
+    allShapes.forEach(actShape => {
+      if (actShape.attrs.isSelected === undefined) return;
+      if (actShape instanceof Konva.Shape && actShape.attrs.isSelected) {
+        actShape.attrs.isSelected = false;
+        actShape.stroke('black');
+      }
+    });
+  }
+
+  getAllShapesInSelection(): Konva.Shape[] {
+    const selectedShapes: Konva.Shape[] = [];
+    const selectionRect = this.selectRectangle;
+  
+    if (!selectionRect) {
+      return selectedShapes;
+    }
+  
+    const allShapes = this.stage?.find('Shape');
+    if (!allShapes) {
+      return selectedShapes;
+    }
+  
+    allShapes.forEach(shape => {
+      if (shape instanceof Konva.Shape) {  // Check if the node is a shape
+        // Get the bounding box of the shape
+        const shapeBoundingBox = shape.getClientRect();
+  
+        // Check if all corners of the shape are within the selection rectangle
+        const isShapeFullyWithinSelection =
+          this.isPointWithinSelection(shapeBoundingBox.x, shapeBoundingBox.y) &&
+          this.isPointWithinSelection(shapeBoundingBox.x + shapeBoundingBox.width, shapeBoundingBox.y) &&
+          this.isPointWithinSelection(shapeBoundingBox.x + shapeBoundingBox.width, shapeBoundingBox.y + shapeBoundingBox.height) &&
+          this.isPointWithinSelection(shapeBoundingBox.x, shapeBoundingBox.y + shapeBoundingBox.height);
+  
+        if (isShapeFullyWithinSelection) {
+          selectedShapes.push(shape);
+        }
+      }
+    });
+  
+    return selectedShapes;
+  }
+  
+  private isPointWithinSelection(x: number, y: number): boolean {
+    const selectionRect = this.selectRectangle;
+  
+    if (!selectionRect) {
+      return false;
+    }
+  
+    const x1 = Math.min(selectionRect.x(), selectionRect.x() + selectionRect.width());
+    const x2 = Math.max(selectionRect.x(), selectionRect.x() + selectionRect.width());
+    const y1 = Math.min(selectionRect.y(), selectionRect.y() + selectionRect.height());
+    const y2 = Math.max(selectionRect.y(), selectionRect.y() + selectionRect.height());
+  
+    return x >= x1 && x <= x2 && y >= y1 && y <= y2;
+  }
+
+/*
+  showContextMenu(event: MouseEvent): void {
+    // Get the context menu element
+    const contextMenu = document.getElementById('contextMenu');
+
+    if (contextMenu) {
+      // Set position based on the mouse pointer
+      contextMenu.style.display = 'block';
+      contextMenu.style.top = event.clientY + 'px';
+      contextMenu.style.left = event.clientX + 'px';
+
+      // Handle context menu actions
+      document.getElementById('delete_button')?.addEventListener('click', () => {
+        this.currentShape.destroy();
+        contextMenu.style.display = 'none';
+      });
+
+      // Add other context menu options and their respective handlers as needed
+    }
+  }
+  */
 }
