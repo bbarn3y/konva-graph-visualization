@@ -23,6 +23,7 @@ export class GraphEditorComponent implements AfterViewInit {
   static IdCount = 1;
   selectRectangle?: Konva.Rect;
   groups: Konva.Group[] = [];
+  currentGroupId: number = 1;
   //currentShape?: Konva.Shape;
   placeHolderShape?: Konva.Shape | Konva.Group;
   gridLayer?: Konva.Layer;
@@ -42,7 +43,7 @@ export class GraphEditorComponent implements AfterViewInit {
     console.log('onResize', event);
     this.updateViewport();
     this.rePositionStage();
-    this.updateGrid();
+    //this.updateGrid();
   }
 
   ShapeType = ShapeType;
@@ -66,11 +67,11 @@ export class GraphEditorComponent implements AfterViewInit {
       console.log(this.stage.scaleY(), this.stage.y())
       if (this.stage) {
         this.gridLayer = new Konva.Layer();
-        this.stage.add(this.gridLayer);
+        //this.stage.add(this.gridLayer);
         const layer = new Konva.Layer();
         this.stage.add(layer);
         console.log('stage', this.stage.getLayers());
-        this.selectedLayer = this.stage.getLayers()[1];
+        this.selectedLayer = this.stage.getLayers()[0];
         this.stage.getLayers().map((layer) => layer.draw());
         this.adjustZoomLevel();
       }
@@ -94,10 +95,11 @@ export class GraphEditorComponent implements AfterViewInit {
       console.log('Clicked on stage', pointerPosition);
       const snapPos = this.calculateGridSnapPosition(pointerPosition);
       if (this.selectedShape) {
-        this.drawShape(this.selectedShape, snapPos.x, snapPos.y, true);
+        this.drawShape(this.selectedShape, pointerPosition.x, pointerPosition.y, true);
       }
       const shape = event.target;
-
+      console.log('groupID ' + shape.attrs.groupId);
+      
       
       if (shape instanceof Konva.Shape && event.evt.ctrlKey && !this.selectedShape)
       {
@@ -106,6 +108,38 @@ export class GraphEditorComponent implements AfterViewInit {
         if (shape instanceof Konva.Shape) {            
             shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black')
         }
+
+        if (shape.attrs.groupId != -1 && shape.attrs.groupId !== undefined){
+          if (shape.attrs.isSelected) {
+            console.log('bruh ' + shape.attrs.groupId);
+            
+            const sameGroupShapes = this.stage?.find('Shape').filter(x => x.attrs.groupId === shape.attrs.groupId);
+          
+            if(!sameGroupShapes) return;
+            console.log(shape.attrs.groupId);
+            
+            sameGroupShapes.forEach(actShape => {
+              if (actShape instanceof Konva.Shape && actShape.attrs.groupId !== 'undefined'){
+                actShape.attrs.isSelected = true;
+                actShape.stroke('yellow');
+              }
+            });
+          }
+          else {
+            const sameGroupShapes = this.stage?.find('Shape').filter(x => x.attrs.groupId === shape.attrs.groupId);
+          
+            if(!sameGroupShapes) return;
+            
+            sameGroupShapes.forEach(actShape => {
+              if (actShape instanceof Konva.Shape && actShape.attrs.groupId !== 'undefined'){
+                actShape.attrs.isSelected = false;
+                actShape.stroke('black');
+              }
+            });
+          }
+        }
+
+        
       }
       // else
       // {
@@ -120,6 +154,12 @@ export class GraphEditorComponent implements AfterViewInit {
       //     }
       //   });
       // }
+
+      const contextMenu = document.getElementById('contextMenu');
+
+      if (!contextMenu) return;
+
+      contextMenu.style.display = 'none';
     });
     //@TODO: Should we need to move on stage? If yes we should move by holding middle mouse button
     //Dragging the stage
@@ -172,8 +212,7 @@ export class GraphEditorComponent implements AfterViewInit {
   
       const currentShape = e.target;
   
-      // Show context menu
-      if (e.evt.button !== 2) return;
+      if (!currentShape.attrs.isSelected) return;
 
       // Get the context menu element
       const contextMenu = document.getElementById('contextMenu');
@@ -188,8 +227,32 @@ export class GraphEditorComponent implements AfterViewInit {
         
 
         // Handle context menu actions
+        document.getElementById('group_button')?.addEventListener('click', () => {
+          
+          const group = new Konva.Group();
+
+          const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
+        
+          if(!selectedShapes) return;
+    
+          selectedShapes.forEach(actShape => {
+          
+            if (actShape instanceof Konva.Shape){
+              actShape.stroke('black');
+              actShape.attrs.groupId = this.currentGroupId;
+              group.add(actShape);
+            }
+            actShape.attrs.isSelected = false;
+          });
+
+          this.currentGroupId++
+          this.selectedLayer?.add(group);
+          this.selectedLayer?.draw();
+          this.groups.push(group);
+          contextMenu.style.display = 'none';
+        });
+
         document.getElementById('delete_button')?.addEventListener('click', () => {
-          console.log("inside");
           currentShape.destroy();
           contextMenu.style.display = 'none';
         });
@@ -240,7 +303,7 @@ export class GraphEditorComponent implements AfterViewInit {
     this.stage.on('mouseup', (event) => {
       
       // Clear the selection rectangle when the left mouse button is released
-      if (event.evt.button === 0 && this.selectRectangle && !event.evt.ctrlKey) {
+      if (event.evt.button === 0 && !this.selectedShape && this.selectRectangle && !event.evt.ctrlKey) {
 
         this.removeSelectionOnShapes();
         const selectedShapes = this.getAllShapesInSelection();
