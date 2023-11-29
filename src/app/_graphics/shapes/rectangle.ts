@@ -37,7 +37,12 @@ export class RectangleShape {
             stroke: 'black',
             strokeWidth: 4,
             draggable: this.draggable,
-            type: ShapeType.RECTANGLE
+            type: ShapeType.RECTANGLE,
+            selectShape : this.selectShape,
         })
+    }
+
+    selectShape() {
+        
     }
 }

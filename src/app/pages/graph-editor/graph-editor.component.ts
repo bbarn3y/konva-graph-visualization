@@ -98,7 +98,8 @@ export class GraphEditorComponent implements AfterViewInit {
         this.drawShape(this.selectedShape, pointerPosition.x, pointerPosition.y, true);
       }
       const shape = event.target;
-      console.log('groupID ' + shape.attrs.groupId);
+      //console.log('groupID ' + shape.attrs.groupId);
+      console.log(shape, shape.getType());
       
       
       if (shape instanceof Konva.Shape && event.evt.ctrlKey && !this.selectedShape)
@@ -352,7 +353,7 @@ export class GraphEditorComponent implements AfterViewInit {
       
       shape.attrs.id = GraphEditorComponent.IdCount++;
       console.log('id ' + shape.id);
-            this.selectedLayer.add(shape);
+      this.selectedLayer.add(shape);
       return shape;
     } else {
       return;
