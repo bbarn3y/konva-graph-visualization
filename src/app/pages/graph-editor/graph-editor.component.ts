@@ -81,8 +81,12 @@ export class GraphEditorComponent implements AfterViewInit {
         if (shape instanceof Konva.Shape) {            
             shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black')
         }
+
+        if (shape.attrs.isSelected && groupID != -1){
+
+        }
       }
-      else
+      else if (event.evt.button !== 2)
       {
         const allShapes = this.stage?.find('Shape');
         
@@ -95,6 +99,14 @@ export class GraphEditorComponent implements AfterViewInit {
           }
         });
       }
+
+      // context menu
+      const contextMenu = document.getElementById('contextMenu');
+
+      if (!contextMenu) return;
+
+      contextMenu.style.display = 'none';
+
     })
 
     this.stage.on('contextmenu', (e) => {
@@ -111,7 +123,7 @@ export class GraphEditorComponent implements AfterViewInit {
       // Show context menu
       //this.showContextMenu(e.evt);
 
-      if (e.evt.button !== 2) return;
+      if (e.evt.button !== 2 || !currentShape.attrs.isSelected) return;
 
       // Get the context menu element
       const contextMenu = document.getElementById('contextMenu');
@@ -126,8 +138,42 @@ export class GraphEditorComponent implements AfterViewInit {
         
 
         // Handle context menu actions
+        document.getElementById('group_button')?.addEventListener('click', () => {
+          console.log("group");
+
+          const allShapes = this.stage?.find('Shape');
+        
+          if(!allShapes) return;
+
+          var group = new Konva.Group({
+            x: 120,
+            y: 40,
+            rotation: 20,
+          });
+
+          allShapes.forEach(actShape => {
+            if (actShape instanceof Konva.Shape && actShape.attrs.isSelected){
+              //actShape.stroke('black');
+              group.add(actShape);
+            }
+          });
+
+          this.selectedLayer?.add(group);
+          this.groups.push(group);
+          console.log("groupped");
+
+          allShapes.forEach(actShape => {
+            actShape.attrs.isSelected = false;
+            if (actShape instanceof Konva.Shape){
+              actShape.stroke('black');
+            }
+          });
+          
+          contextMenu.style.display = 'none';
+        });
+
         document.getElementById('delete_button')?.addEventListener('click', () => {
-          console.log("inside");
+          console.log("delete");
           currentShape.destroy();
           contextMenu.style.display = 'none';
         });
@@ -140,8 +186,7 @@ export class GraphEditorComponent implements AfterViewInit {
 
     this.stage.on('mousedown', (event) => {
       // Store the starting point when the left mouse button is pressed
-      if (event.evt.button === 0 && !this.selectedShape && !event.evt.ctrlKey) {
-        
+      if (event.evt.button === 0 && !this.selectedShape && !event.evt.ctrlKey) {     
         const pointerPosition = this.stage?.getPointerPosition();
         if (pointerPosition) {
           this.selectRectangle = new Konva.Rect({
@@ -178,14 +223,12 @@ export class GraphEditorComponent implements AfterViewInit {
     this.stage.on('mouseup', (event) => {
       
       // Clear the selection rectangle when the left mouse button is released
-      if (event.evt.button === 0 && this.selectRectangle && !event.evt.ctrlKey) {
+      if (event.evt.button === 0 && this.selectRectangle && !event.evt.ctrlKey && !this.selectedShape) {
 
         this.removeSelectionOnShapes();
         const selectedShapes = this.getAllShapesInSelection();
 
-        selectedShapes.forEach(actShape => {
-          console.log('inside----------');
-          
+        selectedShapes.forEach(actShape => {          
           actShape.attrs.isSelected = true;
           actShape.stroke('yellow'); 
         });

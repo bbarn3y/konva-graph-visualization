@@ -12,6 +12,7 @@ export class RectangleShape {
     height: number;
     draggable: boolean;
     id?: number;
+    groupId?: number = -1;
 
     constructor(stage: Konva.Stage, x: number, y: number, width: number, height: number, draggable = false) {
         this.stage = stage;
