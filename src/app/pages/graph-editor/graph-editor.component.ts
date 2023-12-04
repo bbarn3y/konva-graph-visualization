@@ -101,6 +101,9 @@ export class GraphEditorComponent implements AfterViewInit {
       console.log(shape, shape.getType());
       
       
+      console.log('sr ', this.selectRectangle);
+      
+
       if (shape instanceof Konva.Shape && event.evt.button !== 2 && !this.selectedShape)
       {
         /*
@@ -221,6 +224,9 @@ export class GraphEditorComponent implements AfterViewInit {
       if (e.target === this.stage || this.selectedShape) {
         return;
       }
+
+      //        if(!selectedShapes || selectedShapes.length <= 1) return;
+
   
       const currentShape = e.target;
   
@@ -251,16 +257,34 @@ export class GraphEditorComponent implements AfterViewInit {
             if (actShape instanceof Konva.Shape){
               actShape.stroke('black');
               actShape.attrs.groupId = group.attrs.id;
+              actShape.attrs.group = group;
               group.add(actShape);
             }
             actShape.attrs.isSelected = false;
           });
 
+          currentShape.attrs.group = group;
           console.log(group.attrs.id);
           
           this.selectedLayer?.add(group);
           this.selectedLayer?.draw();
           this.groups.push(group);
+          contextMenu.style.display = 'none';
+        });
+
+        document.getElementById('ungroup_button')?.addEventListener('click', () => {
+          const group = currentShape.attrs.group;
+          const sameGroupShapes = this.stage?.find('Shape').filter(x => x.attrs.group == group);
+          
+          sameGroupShapes.forEach(actShape => {
+            if (actShape instanceof Konva.Shape){
+              group.remove(actShape);
+              actShape.attrs.group = undefined;
+              actShape.stroke('black');
+            }
+          });
+          group.remove(currentShape);
+          currentShape.attrs.group = undefined;
           contextMenu.style.display = 'none';
         });
 
@@ -315,7 +339,7 @@ export class GraphEditorComponent implements AfterViewInit {
     this.stage.on('mouseup', (event) => {
       
       // Clear the selection rectangle when the left mouse button is released
-      if (event.evt.button === 0 && !this.selectedShape && this.selectRectangle && !event.evt.ctrlKey) {
+      if (event.evt.button === 0 && !this.selectedShape && this.selectRectangle) {
 
         this.removeSelectionOnShapes();
         const selectedShapes = this.getAllShapesInSelection();
