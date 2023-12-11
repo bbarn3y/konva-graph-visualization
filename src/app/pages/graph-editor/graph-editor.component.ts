@@ -103,8 +103,19 @@ export class GraphEditorComponent implements AfterViewInit {
       
       console.log('sr ', this.selectRectangle);
       
-
-      if (shape instanceof Konva.Shape && event.evt.button !== 2 && !this.selectedShape)
+      if (event.target === this.stage){
+          const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
+        
+          if(!selectedShapes) return;
+    
+          selectedShapes.forEach(actShape => {
+            if (actShape instanceof Konva.Shape){
+              actShape.attrs.isSelected = false;
+              actShape.stroke('black');
+            }
+          });
+      }
+      else if (shape instanceof Konva.Shape && event.evt.button !== 2 && !this.selectedShape)
       {
         /*
         if (!shape.attrs.isSelected){
@@ -117,11 +128,31 @@ export class GraphEditorComponent implements AfterViewInit {
           shape.attrs.unselectShape();
         }
         */
+        if (event.evt.ctrlKey)
+        {
+          if (shape.attrs.isSelected){
+            shape.attrs.isSelected = false;
+            shape.stroke('black');
+          }
+          else {
+            shape.attrs.isSelected = true;
+            shape.stroke('yellow');
+          }
+        }
+        else if (shape instanceof Konva.Shape) {  
+          const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
         
-        shape.attrs.isSelected = !shape.attrs.isSelected;
+          if(!selectedShapes) return;
     
-        if (shape instanceof Konva.Shape) {            
-            shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black')
+          selectedShapes.forEach(actShape => {
+            if (actShape instanceof Konva.Shape){
+              actShape.attrs.isSelected = false;
+              actShape.stroke('black');
+            }
+          });
+          
+          shape.attrs.isSelected = !shape.attrs.isSelected;      
+          shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black')
         }
         
         if (shape.attrs.groupId != -1 && shape.attrs.groupId !== undefined){
