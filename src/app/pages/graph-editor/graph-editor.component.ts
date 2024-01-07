@@ -9,6 +9,13 @@ import Group = Konva.Group;
 import { ShapeType } from 'src/app/_models/shape-type';
 import { RectangleShape } from 'src/app/_graphics/shapes/rectangle';
 import { Vector2d } from 'konva/lib/types';
+import { from, last } from 'rxjs';
+import { Breakpoint } from 'src/app/_graphics/shapes/breakpoint';
+import { FinalLineGuide, GuideOrientation, LineGuide, LineGuideStops, ObjectBound, ObjectSnappingEdges, SnapDirection } from 'src/app/_interfaces/shapeTypes';
+import { KonvaEventObject } from 'konva/lib/Node';
+import { PlaceholderShapes } from 'src/app/_constants/placeholderShapes';
+import { RGBA } from 'konva/lib/filters/RGBA';
+import { defaultShapes } from 'src/app/_constants/defaultShapes';
 
 @Component({
   selector: 'app-graph-editor',
@@ -17,6 +24,7 @@ import { Vector2d } from 'konva/lib/types';
 })
 export class GraphEditorComponent implements AfterViewInit {
   @ViewChild('container') containerElement?: ElementRef<HTMLDivElement>;
+  @ViewChild('contextMenu') contextMenuElement?: ElementRef<HTMLDivElement>;
   stage!: Konva.Stage;
   selectedLayer?: Konva.Layer;
   selectedShape?: ShapeType;
@@ -26,20 +34,47 @@ export class GraphEditorComponent implements AfterViewInit {
   //currentShape?: Konva.Shape;
   placeHolderShape?: Konva.Shape | Konva.Group;
   gridLayer?: Konva.Layer;
+  placeholderLayer?: Konva.Layer;
   //@TODO: Put in configuration
   fieldSize: number = 100;
   windowWidth: number = 300;
   windowHeight: number = 300;
   scaleBy: number = 1.04;
   zoomLevel: number = 1
+  clickedShape?: any;
+
+
+  //Guide line related
+  GUIDELINE_OFFSET: number = 5;
+
+  isShowContextMenu: boolean = false;
+  isGrouped: boolean = false;
+
+
   clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
   clampPos = (pos: Vector2d, min: number, max: number) => {
     return { x: Math.min(Math.max(pos.x, min), max), y: Math.min(Math.max(pos.y, min), max) }
   }
+  distancePos = (fromPos: Vector2d, targetPos: Vector2d) => {
+    const dx = fromPos.x - targetPos.x;
+    const dy = fromPos.y - targetPos.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  snapDistance: number = 20;
+
+  //Arrow related
+  placeholderArrow = PlaceholderShapes.placeHolderArrow;
+  placeholderConnection = PlaceholderShapes.placeHolderConnectionCircle;
+  isDrawingLine: boolean = false;
+  breakpointsById: { [k: string]: Breakpoint[] } = {};
+  linesById: { [k: string]: (Konva.Line | Konva.Arrow)[] } = {};
+  currentLineId?: string;
+  breakpoints: Breakpoint[] = [];
+  currentBreakpoint?: Breakpoint;
 
   @HostListener('window:resize', ['$event'])
   onResize(event: any) {
-    console.log('onResize', event);
     this.updateViewport();
     this.rePositionStage();
     this.updateGrid();
@@ -59,18 +94,83 @@ export class GraphEditorComponent implements AfterViewInit {
       container: 'container',
       width: this.windowWidth,
       height: this.windowHeight,
-      //scaleY: 1,
-      //y: this.windowHeight,
-      // draggable: false
+      draggable: true
     })
-      console.log(this.stage.scaleY(), this.stage.y())
       if (this.stage) {
+
         this.gridLayer = new Konva.Layer();
         this.stage.add(this.gridLayer);
+        this.gridLayer.on('dragmove', (e) => {
+          this.gridLayer?.find('.guid-line').forEach((l) => l.destroy());
+
+          const lineGuideStops = this.getLineGuideStops(e.target);
+          const itemBounds = this.getObjectSnappingEdges(e.target);
+          const guides = this.getGuides(lineGuideStops, itemBounds);
+
+          if (!guides || !guides.length) {
+            return;
+          }
+
+          this.drawGuides(guides);
+
+          const absPos = e.target.getAbsolutePosition();
+          guides.forEach((lg) => {
+            switch (lg.snap) {
+              case SnapDirection.start: {
+                switch (lg.orientation.toString()) {
+                  case GuideOrientation.V.toString(): {
+                    absPos.x = lg.lineGuide + lg.offset;
+                    break;
+                  };
+                  case GuideOrientation.H.toString(): {
+                    absPos.y = lg.lineGuide + lg.offset;
+                    break;
+                  }
+                }
+                break;
+              }
+              case SnapDirection.center: {
+                switch (lg.orientation.toString()) {
+                  case GuideOrientation.V.toString(): {
+                    absPos.x = lg.lineGuide + lg.offset;
+                    break;
+                  };
+                  case GuideOrientation.H.toString(): {
+                    absPos.y = lg.lineGuide + lg.offset;
+                    break;
+                  }
+                }
+                break;
+              }
+              case SnapDirection.end: {
+                switch (lg.orientation.toString()) {
+                  case GuideOrientation.V.toString(): {
+                    absPos.x = lg.lineGuide + lg.offset;
+                    break;
+                  };
+                  case GuideOrientation.H.toString(): {
+                    absPos.y = lg.lineGuide + lg.offset;
+                    break;
+                  }
+                }
+                break;
+              }
+            }
+          });
+          e.target.absolutePosition(absPos);
+        });
+
+        this.gridLayer.on('dragend', (e) => {
+          layer.find('.guid-line').forEach((l) => l.destroy());
+        });
         const layer = new Konva.Layer();
         this.stage.add(layer);
-        console.log('stage', this.stage.getLayers());
         this.selectedLayer = this.stage.getLayers()[1];
+
+        this.placeholderLayer = new Konva.Layer();
+        this.placeholderLayer.add(this.placeholderConnection);
+        this.stage.add(this.placeholderLayer);
+
         this.stage.getLayers().map((layer) => layer.draw());
         this.adjustZoomLevel();
       }
@@ -89,15 +189,57 @@ export class GraphEditorComponent implements AfterViewInit {
     }
 
     this.stage.on('click', (event) => {
+      event.evt.preventDefault();
+      this.isShowContextMenu = false;
+      if (event.evt.button == 2) {
+        this.cancelDrawLine();
+        return;
+      }
       const pointerPosition = this.stage?.getRelativePointerPosition();
       if (!pointerPosition) return;
-      console.log('Clicked on stage', pointerPosition);
+      const shape = event.target;
       const snapPos = this.calculateGridSnapPosition(pointerPosition);
-      if (this.selectedShape) {
+      
+      //Draw arrow to shape
+      if (this.isDrawingLine && this.currentLineId &&
+        shape instanceof Konva.Shape || shape instanceof Konva.Group) {
+        //this.addArrow(this.calculateCenterPosition(shape));
+        this.addArrow(this.calculateConnectionPosition(pointerPosition, shape));
+      } else if (this.isDrawingLine && this.currentLineId) {
+        const points = this.placeholderArrow.points();
+        if (!this.breakpointsById[this.currentLineId]) this.breakpointsById[this.currentLineId] = [];
+        const tempLine = defaultShapes.connectionLine.clone().points(points);
+        this.linesById[this.currentLineId].push(
+          tempLine
+        );
+        this.selectedLayer?.add(tempLine);
+        const tempBreakPoint = new Breakpoint(
+          this.stage,
+          points[2],
+          points[3],
+          true,
+          this.currentLineId,
+          this.breakpointsById[this.currentLineId].length
+        );
+        this.breakpointsById[this.currentLineId].push(
+          tempBreakPoint
+        );
+        
+        const shape = tempBreakPoint.shape();
+        shape.on('dragmove', (e) => {
+          const pointerPos = this.stage.getRelativePointerPosition();
+          if (!pointerPos) return;
+          tempBreakPoint.x = pointerPos.x;
+          tempBreakPoint.y = pointerPos.y;
+          this.updateLinesById(tempBreakPoint.lineId);
+        });
+        this.selectedLayer?.add(shape);
+        this.updateLinesById(this.currentLineId);
+        this.placeholderArrow.points([points[2], points[3], pointerPosition.x, pointerPosition.y]);
+        //this.addBreakpoint({x: points[2], y: points[3]});
+      } else if (this.selectedShape) {
         this.drawShape(this.selectedShape, snapPos.x, snapPos.y, true);
       }
-      const shape = event.target;
-
       
       if (shape instanceof Konva.Shape && event.evt.ctrlKey && !this.selectedShape)
       {
@@ -123,17 +265,17 @@ export class GraphEditorComponent implements AfterViewInit {
     });
     //@TODO: Should we need to move on stage? If yes we should move by holding middle mouse button
     //Dragging the stage
-    // this.stage.on('dragmove', (e) => {
-    //   this.rePositionStage();
-    // });
-    // this.stage.on('dragend', (e) => {
-    //   this.rePositionStage();
-    // });
+    this.stage.on('dragmove', (e) => {
+      this.rePositionStage();
+    });
+    this.stage.on('dragend', (e) => {
+      this.rePositionStage();
+    });
     //Scroll event
     this.stage.on('wheel', (event) => {
       event.evt.preventDefault();
       const oldScale = this.stage.scaleX();
-      const pointer = this.stage.getPointerPosition();
+      const pointer = this.stage.getRelativePointerPosition();
       if (!pointer) return;
       const mousePointTo = {
         x: (pointer.x - this.stage.x()) / oldScale,
@@ -148,7 +290,7 @@ export class GraphEditorComponent implements AfterViewInit {
       this.stage.scale({ x: newScale, y: newScale });
 
       //Move the a bit based on the pointer position. (Slightly moving towards to pointer)
-      //Note:Might delete this becaous of clamped stage coords
+      //Note:Might delete this because of clamped stage coords
       const newPos = {
         x: pointer.x - mousePointTo.x * newScale,
         y: pointer.y - mousePointTo.y * newScale
@@ -164,47 +306,53 @@ export class GraphEditorComponent implements AfterViewInit {
     this.stage.on('contextmenu', (e) => {
       // prevent default behavior
       e.evt.preventDefault();
+      this.isShowContextMenu = false;
+
+
+      if (this.isDrawingLine) {
+        this.cancelDrawLine();
+        return;
+      }
   
       // Check if we are on an empty place of the stage
       if (e.target === this.stage || this.selectedShape) {
         return;
       }
   
-      const currentShape = e.target;
-  
+      if (!this.contextMenuElement) return;
       // Show context menu
-      if (e.evt.button !== 2) return;
+      this.isShowContextMenu = true;
+      // Set position based on the mouse pointer
+      this.contextMenuElement.nativeElement.style.top = e.evt.clientY + 'px';
+      this.contextMenuElement.nativeElement.style.left = e.evt.clientX + 'px';
 
-      // Get the context menu element
-      const contextMenu = document.getElementById('contextMenu');
 
-      if (contextMenu) {
-        // Set position based on the mouse pointer
-        contextMenu.style.display = 'block';
-        contextMenu.style.top = e.evt.clientY + 'px';
-        contextMenu.style.left = e.evt.clientX + 'px';
-
+      // if (contextMenu) {
         
-        
+      //   this.contextMenuElement.nativeElement.style.top = pointerPos;
+      //   contextMenu.style.display = 'block';
+      //   contextMenu.style.top = e.evt.clientY + 'px';
+      //   contextMenu.style.left = e.evt.clientX + 'px';
 
-        // Handle context menu actions
-        document.getElementById('delete_button')?.addEventListener('click', () => {
-          console.log("inside");
-          currentShape.destroy();
-          contextMenu.style.display = 'none';
-        });
-
+      //   // Handle context menu actions
+      //   document.getElementById('delete_button')?.addEventListener('click', () => {
+      //     console.log("inside");
+      //     currentShape.destroy();
+      //     contextMenu.style.display = 'none';
+      //   });
         // Add other context menu options and their respective handlers as needed
-      }
+      //}
     });
 
     
-
+    
     this.stage.on('mousedown', (event) => {
       // Store the starting point when the left mouse button is pressed
+      /* Old multi selection, commented out beaces of dragmove of the stage, on merge
+      should change to new multi selection.
       if (event.evt.button === 0 && !this.selectedShape && !event.evt.ctrlKey) {
         
-        const pointerPosition = this.stage?.getPointerPosition();
+        const pointerPosition = this.stage.getRelativePointerPosition()
         if (pointerPosition) {
           this.selectRectangle = new Konva.Rect({
             x: pointerPosition.x,
@@ -219,12 +367,15 @@ export class GraphEditorComponent implements AfterViewInit {
           this.selectedLayer?.batchDraw();
         }
       }
+      */
     });
 
     this.stage.on('mousemove', () => {
       // Update the position and dimensions of the temporary rectangle while dragging
+      /* Old multi selection, commented out beaces of dragmove of the stage, on merge
+      should change to new multi selection.
       if (this.selectRectangle) {
-        const currentMousePos = this.stage?.getPointerPosition();
+        const currentMousePos = this.stage.getRelativePointerPosition()
         if (currentMousePos) {
           const width = currentMousePos.x - this.selectRectangle.x();
           const height = currentMousePos.y - this.selectRectangle.y();
@@ -235,11 +386,18 @@ export class GraphEditorComponent implements AfterViewInit {
           this.selectedLayer?.batchDraw();
         }
       }
+      */
+      //Update placeholderArrow points based on pointer pos
+      if (this.isDrawingLine) {
+        this.updateArrow();
+      }
     });
 
     this.stage.on('mouseup', (event) => {
       
       // Clear the selection rectangle when the left mouse button is released
+      /* Old multi selection, commented out beaces of dragmove of the stage, on merge
+      should change to new multi selection.
       if (event.evt.button === 0 && this.selectRectangle && !event.evt.ctrlKey) {
 
         this.removeSelectionOnShapes();
@@ -255,28 +413,60 @@ export class GraphEditorComponent implements AfterViewInit {
         this.selectRectangle.destroy();
         this.selectedLayer?.batchDraw();
       }
+      */
     });
+  }
+
+  selectShape(shape: ShapeType | undefined) {
+    if (this.isDrawingLine) return;
+    this.selectedShape = shape;
   }
 
   drawShape(shapeType: ShapeType, x: number, y: number, draggable: boolean = false) {
     const shapeSize = this.calculateShapeSize();
-    console.log('drawShape', shapeType, x, y);
     if(this.stage && this.selectedLayer) {
       let shape;
       switch(shapeType) {
         case ShapeType.RECTANGLE:
           shape = new RectangleShape(this.stage, x, y, shapeSize.x, shapeSize.y, draggable).shape();
           shape.on('dragstart', (e) => {
-            console.log('DragStart', e);
+            this.placeholderConnection.opacity(0);
             e.currentTarget.moveToTop();
           });
           shape.on('dragend', (e) => {
-            console.log('DragEnd', e);
             e.currentTarget.position(this.calculateGridSnapPosition(e.currentTarget.getPosition()));
           });
           shape.on('dragmove', (e) => {
-            console.log('DragMove', e);
+            
             e.currentTarget.position(this.calculateGridSnapPosition(e.currentTarget.getPosition()));
+          });
+          shape.on('dblclick', (e) => {
+            if (e.currentTarget instanceof Konva.Shape || e.currentTarget instanceof Konva.Group) {
+              this.selectedLayer?.add(this.placeholderArrow);
+              this.currentLineId = e.currentTarget.id()
+              if (!this.currentLineId) return;
+              this.isDrawingLine = true;
+              this.linesById[this.currentLineId] = [];
+              this.drawArrow(this.calculateConnectionPosition(
+                this.stage.getRelativePointerPosition()!,
+                e.currentTarget
+              ));
+            }
+          });
+
+          shape.on('mousemove', (e) => {
+            if (e.currentTarget instanceof Konva.Shape || e.currentTarget instanceof Konva.Group) {
+              const pointerPos = this.stage.getRelativePointerPosition();
+              if (!pointerPos) return;
+
+              //Placeholder connection shape
+              this.placeholderConnection.position(this.calculateConnectionPosition(pointerPos, e.currentTarget));
+              this.placeholderConnection.opacity(0.65);
+            }
+          });
+
+          shape.on('mouseout', (e) => {
+            this.placeholderConnection.opacity(0);
           });
           break;
         default:
@@ -288,8 +478,7 @@ export class GraphEditorComponent implements AfterViewInit {
       }
       
       shape.attrs.id = GraphEditorComponent.IdCount++;
-      console.log('id ' + shape.id);
-            this.selectedLayer.add(shape);
+      this.selectedLayer.add(shape);
       return shape;
     } else {
       return;
@@ -320,7 +509,6 @@ export class GraphEditorComponent implements AfterViewInit {
     const horizontalPadding = 20;
     this.windowWidth = window.innerWidth - horizontalPadding;
     this.windowHeight = window.innerHeight - topPadding;
-    console.log('Viewport updated!', this.windowWidth, this.windowHeight, window.innerWidth, window.innerHeight);
     if (!this.stage) return;
     this.stage.width(this.windowWidth);
     this.stage.height(this.windowHeight);
@@ -345,77 +533,20 @@ export class GraphEditorComponent implements AfterViewInit {
     const endY = Math.floor((-this.stage.y() + stageHeight) / weightedFieldSize) * weightedFieldSize * this.zoomLevel;
     //In every loop we draw a line in every direction
     //then increasing the current x pos by gridSize
+    const gridLine = defaultShapes.gridLine;
     for (let x = startX; x < endX; x += weightedFieldSize) {
-              this.gridLayer.add(
-          new Konva.Line({
-          points: [x, 0, x, startY - endY],
-          stroke: '#ddd',
-          strokeWidth: 4,
-          listening: false
-          })
-        );
-        this.gridLayer.add(
-          new Konva.Line({
-          points: [-x, 0, -x, endY - startY],
-          stroke: '#ddd',
-          strokeWidth: 4,
-          listening: false
-          })
-        );
-
-        this.gridLayer.add(
-          new Konva.Line({
-          points: [x, 0, x, endY - startY],
-          stroke: '#ddd',
-          strokeWidth: 4,
-          listening: false
-          })
-        );
-        this.gridLayer.add(
-          new Konva.Line({
-          points: [-x, 0, -x, startY - endY],
-          stroke: '#ddd',
-          strokeWidth: 4,
-          listening: false
-          })
-      );
+      this.gridLayer.add(gridLine.clone().points([x, 0, startY - endY]));
+      this.gridLayer.add(gridLine.clone().points([-x, 0, -x, endY - startY]));
+      this.gridLayer.add(gridLine.clone().points([x, 0, x, endY - startY]));
+      this.gridLayer.add(gridLine.clone().points([-x, 0, -x, startY - endY]));
       this.gridLayer.batchDraw();
     }
     //We do same on the Y axis
     for (let y = startY; y < endY; y += weightedFieldSize) {
-        this.gridLayer.add(
-          new Konva.Line({
-          points: [0, y, startX - endX, y],
-          stroke: '#ddd',
-          strokeWidth: 4,
-          listening: false
-          })
-        );
-        this.gridLayer.add(
-          new Konva.Line({
-          points: [0, y, endX - startX, y],
-          stroke: '#ddd',
-          strokeWidth: 4,
-          listening: false
-          })
-        );
-
-        this.gridLayer.add(
-          new Konva.Line({
-          points: [0, -y, endX - startX, -y],
-          stroke: '#ddd',
-          strokeWidth: 4,
-          listening: false
-          })
-        );
-        this.gridLayer.add(
-          new Konva.Line({
-          points: [0, -y, startY - endY, -y],
-          stroke: '#ddd',
-          strokeWidth: 4,
-          listening: false
-          })
-      );
+      this.gridLayer.add(gridLine.clone().points([0, y, startX - endX, y]));
+      this.gridLayer.add(gridLine.clone().points([0, y, endX - startX, y]));
+      this.gridLayer.add(gridLine.clone().points([0, -y, endX - startX, -y]));
+      this.gridLayer.add(gridLine.clone().points([0, -y, startY - endY, -y]));
       this.gridLayer.batchDraw();
     }
   }
@@ -432,7 +563,6 @@ export class GraphEditorComponent implements AfterViewInit {
       this.zoomLevel = 4;
     }
     this.updateGrid();
-    console.log(this.stage.scaleY(), this.stage.y())
   }
 
   //Reposition stage, but the coords are clamped and based on zoom level.
@@ -452,12 +582,12 @@ export class GraphEditorComponent implements AfterViewInit {
   //Drag events from toolbar
   //
   shapeMenuItemDragStarted(shapeType: ShapeType, e?: Event) {
+    if (this.isDrawingLine) return;
     this.selectedShape = shapeType;
   }
 
   //Dropped on a Konva stage
   onDrop(e: Event) {
-    console.log('On drop', e);
     e.preventDefault();
     if(!this.stage || !this.selectedShape) {
       return;
@@ -497,7 +627,6 @@ export class GraphEditorComponent implements AfterViewInit {
   //A dragged shape leaves the konva stage.
   onDragLeave(e: Event) {
     e.preventDefault();
-    console.log('DragLeave', e);
     if (!this.placeHolderShape) return;
     //Remove placeholder shape;
     this.placeHolderShape.remove();
@@ -506,13 +635,11 @@ export class GraphEditorComponent implements AfterViewInit {
 
   onDragEnd(e: Event) {
     e.preventDefault();
-    console.log('DragEnd', e);
   }
 
   removeSelectionOnShapes() 
   {
     const allShapes = this.stage?.find('Shape');
-    //console.log(allShapes?.length);
     
     if (!allShapes) return;
 
@@ -595,4 +722,328 @@ export class GraphEditorComponent implements AfterViewInit {
     }
   }
   */
+  
+  //Arrow related
+  updateLinesById(id: string): void {
+    if (!this.linesById[id] || !this.breakpointsById[id]) return;
+    if (this.linesById[id].length <= 0) return;
+    if (this.linesById[id].length < this.breakpointsById[id].length
+      && this.linesById[id].length > 1) {
+      this.breakpointsById[id].pop();
+      this.updateLinesById(id);
+      return;
+    }
+    const lastIndex = this.linesById[id].length - 1;
+    this.linesById[id].forEach((line, index) => {
+      if (index === 0) {
+        const br = this.breakpointsById[id][index];
+        const points = this.linesById[id][index].points();
+        const firstPos = {
+          x: points[0],
+          y: points[1]
+        } as Vector2d;
+        line.points([firstPos.x, firstPos.y, br.x, br.y]);
+      } else if (index === lastIndex) {
+        const br = this.breakpointsById[id][index - 1];
+        const points = this.linesById[id][index].points();
+        const lastPos = {
+          x: points[2],
+          y: points[3]
+        } as Vector2d;
+        line.points([br.x, br.y, lastPos.x, lastPos.y]);
+      } else {
+        const br = this.breakpointsById[id][index];
+        const prevBr = this.breakpointsById[id][index - 1];
+        line.points([prevBr.x, prevBr.y, br.x, br.y]);
+      }    
+    });
+  }
+
+  addArrow(endPos: Vector2d) {
+    if (!this.currentLineId) return;
+    if (!this.linesById[this.currentLineId] ||
+      !this.breakpointsById[this.currentLineId]
+    ) return;
+    const tempArrow = this.placeholderArrow.clone();
+    const tempPoints = tempArrow.points();
+
+    tempArrow.points([tempPoints[0], tempPoints[1], endPos.x, endPos.y]);
+    tempArrow.opacity(1);
+    this.linesById[this.currentLineId].push(
+      tempArrow
+    );
+    this.selectedLayer?.add(tempArrow);
+    this.cancelDrawLine();
+    
+  }
+
+  drawArrow(fromPos: Vector2d) {
+    const pointerPos = this.stage.getRelativePointerPosition()
+    if (!pointerPos) return;
+    pointerPos.x 
+    const deltaX = (pointerPos.x - 10) - fromPos.x;
+    const deltaY = (pointerPos.y - 10) - fromPos.y;
+    const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+
+    const snappedAngle = this.snapToAngle(angle, 90, 5);
+
+    const length = Math.sqrt(deltaX ** 2 + deltaY ** 2);
+    const snappedX = fromPos.x + length * Math.cos((snappedAngle * Math.PI) / 180);
+    const snappedY = fromPos.y + length * Math.sin((snappedAngle * Math.PI) / 180);
+    this.placeholderArrow.points([fromPos.x, fromPos.y, snappedX, snappedY])
+    this.selectedLayer?.add(this.placeholderArrow);
+  }
+  // drawLine(fromPos: Vector2d, toPos: Vector2d) {
+  //   //@TODO: Add to config
+  //   const line = new Konva.Line({
+  //     points: [fromPos.x, fromPos.y, toPos.x, toPos.y],
+  //     stroke: 'black',
+  //     width: 5,
+  //     draggable: false
+  //   })
+  //   this.selectedLayer?.add(line);
+  // }
+
+  snapToAngle(angle: number, targetAngle: number, threshold: number) {
+    const snappedAngle = Math.round(angle / targetAngle) * targetAngle;
+    const diff = Math.abs(angle - snappedAngle);
+    return diff <= threshold ? snappedAngle : angle;
+  }
+  updateArrow() {
+    const pointerPos = this.stage.getRelativePointerPosition();
+    if (!pointerPos) return;
+    const startPoints = { x: this.placeholderArrow.points()[0], y: this.placeholderArrow.points()[1] };
+    this.selectedLayer?.add(this.placeholderArrow);
+    const snapPos = this.snapToAngleHelper(startPoints, pointerPos);
+    this.placeholderArrow.points([startPoints.x, startPoints.y, snapPos.x, snapPos.y])
+  }
+
+  cancelDrawLine() {
+    this.isDrawingLine = false;
+    this.placeholderArrow.remove();
+    this.currentLineId = undefined;
+
+  }
+
+  snapToAngleHelper(startPos: Vector2d, endPos: Vector2d) {
+    const deltaX = endPos.x - startPos.x;
+    const deltaY = endPos.y - startPos.y;
+    const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+
+    const snappedAngle = this.snapToAngle(angle, 90, 5);
+
+    const length = Math.sqrt(deltaX ** 2 + deltaY ** 2);
+    const snappedX = startPos.x + length * Math.cos((snappedAngle * Math.PI) / 180);
+    const snappedY = startPos.y + length * Math.sin((snappedAngle * Math.PI) / 180);
+
+    return { x: snappedX, y: snappedY } as Vector2d;
+  }
+
+  newBreakpoint(pos: Vector2d) {
+    return new Breakpoint(this.stage, pos.x, pos.y, true, '', 0);
+  }
+
+  //Guide line related
+  getLineGuideStops(skipShape?: any) {
+    if (!this.stage) return;
+    // we can snap to stage borders and the center of the stage
+    const vertical = [0, this.stage.width() / 2, this.stage.width()];
+    const horizontal = [0, this.stage.height() / 2, this.stage.height()];
+
+    // and we snap over edges and center of each object on the canvas
+    const layers = this.stage.getChildren();
+    const shapes = layers.flatMap((layer) => layer.getChildren());
+    shapes.forEach((guideItem) => {
+      if (guideItem === skipShape) return;
+      const box = guideItem.getClientRect();
+      vertical.push(box.x, box.x + box.width, box.x + box.width / 2);
+      horizontal.push(box.y, box.y + box.height, box.y + box.height / 2);
+    });
+    return {
+      vertical: vertical.flat(),
+      horizontal: horizontal.flat(),
+    } as LineGuideStops;
+
+  }
+
+  getObjectSnappingEdges(node: any) {
+    const box = node.getClientRect();
+    const absPos = node.absolutePosition();
+
+    return {
+      vertical: [
+        {
+          guide: Math.round(box.x),
+          offset: Math.round(absPos.x - box.x),
+          snap: SnapDirection.start,
+        } as ObjectBound,
+        {
+          guide: Math.round(box.x + box.width / 2),
+          offset: Math.round(absPos.x - box.x - box.width / 2),
+          snap: SnapDirection.center,
+        } as ObjectBound,
+        {
+          guide: Math.round(box.x + box.width),
+          offset: Math.round(absPos.x - box.x - box.width),
+          snap: SnapDirection.end,
+        } as ObjectBound,
+
+      ],
+      horizontal: [
+        {
+          guide: Math.round(box.y),
+          offset: Math.round(absPos.y - box.y),
+          snap: SnapDirection.start,
+        } as ObjectBound,
+        {
+          guide: Math.round(box.y + box.height / 2),
+          offset: Math.round(absPos.y - box.y - box.height / 2),
+          snap: SnapDirection.center,
+        } as ObjectBound,
+        {
+          guide: Math.round(box.y + box.height),
+          offset: Math.round(absPos.y - box.y - box.height),
+          snap: SnapDirection.end,
+        } as ObjectBound,
+      ],
+    } as ObjectSnappingEdges;
+  }
+
+  // find all snapping possibilities
+  getGuides(getLineGuideStops: LineGuideStops | undefined, itemBounds: ObjectSnappingEdges | undefined) {
+    if (!getLineGuideStops || !itemBounds) return;
+    
+    const resultV: LineGuide[] = [];
+    const resultH: LineGuide[] = [];
+
+    getLineGuideStops.vertical.forEach((lineGuide) => {
+      itemBounds.vertical.forEach((itemBound) => {
+        const diff = Math.abs(lineGuide - itemBound.guide);
+        if (diff < this.GUIDELINE_OFFSET) {
+          resultV.push({
+            lineGuide: lineGuide,
+            diff: diff,
+            snap: itemBound.snap,
+            offset: itemBound.offset,
+          } as LineGuide);
+        }
+      });
+    });
+
+    getLineGuideStops.horizontal.forEach((lineGuide) => {
+      itemBounds.horizontal.forEach((itemBound) => {
+        const diff = Math.abs(lineGuide - itemBound.guide);
+        if (diff < this.GUIDELINE_OFFSET) {
+          resultH.push({
+            lineGuide: lineGuide,
+            diff: diff,
+            snap: itemBound.snap,
+            offset: itemBound.offset,
+          } as LineGuide);
+        }
+      });
+    });
+
+    const guides: FinalLineGuide[] = [];
+
+    //find closest snap
+    const minV = resultV.sort((a, b) => a.diff - b.diff)[0];
+    const minH = resultH.sort((a, b) => a.diff - b.diff)[0];
+    if (minV) {
+      guides.push({
+        lineGuide: minV.lineGuide,
+        offset: minV.offset,
+        orientation: GuideOrientation.V,
+        snap: minV.snap
+      } as FinalLineGuide)
+    }
+    if (minH) {
+      guides.push({
+        lineGuide: minH.lineGuide,
+        offset: minH.offset,
+        orientation: GuideOrientation.H,
+        snap: minH.snap
+      } as FinalLineGuide)
+    }
+
+    return guides;
+  }
+
+  drawGuides(guides: FinalLineGuide[]) {
+    if (!this.gridLayer) return;
+    guides.forEach((lg) => {
+      if (lg.orientation === GuideOrientation.V) {
+        const line = new Konva.Line({
+          points: [-6000, 0, 6000, 0],
+          stroke: 'rgb(0, 161, 255)',
+          strokeWidth: 1,
+          name: 'guid-line',
+          dash: [4, 6],
+        });
+        this.gridLayer?.add(line);
+        line.absolutePosition({
+          x: 0,
+          y: lg.lineGuide,
+        });
+      } else if (lg.orientation === GuideOrientation.H) {
+        const line = new Konva.Line({
+          points: [0, -6000, 0, 6000],
+          stroke: 'rgb(0,161, 255)',
+          strokeWidth: 1,
+          name: 'guid-line',
+          dash: [4, 6],
+        });
+        this.gridLayer?.add(line);
+        line.absolutePosition({
+          x: lg.lineGuide,
+          y: 0,
+        })
+      }
+    });
+  }
+
+  //Center of shape
+  calculateCenterPosition(shape: Konva.Shape | Konva.Group) {
+    return {x: shape.x() + shape.width() / 2 ,y:shape.y() + shape.height() / 2 } as Vector2d
+  }
+
+  calculateConnectionPosition = (fromPos: Vector2d, toShape: Konva.Shape | Konva.Group) => {
+    const middlePoint = { x: toShape.x() + toShape.width() / 2, y: toShape.y() - toShape.y() / 2 };
+    const topPos = { x: toShape.x() + toShape.width() / 2, y: toShape.y() };
+    const leftPos = { x: toShape.x(), y:toShape.y() + toShape.height() / 2 };
+    const rightPos = { x:toShape.x() + toShape.width() , y:toShape.y() + toShape.height() / 2 };
+    const bottomPos = { x: toShape.x() + toShape.width() / 2, y: toShape.y() + toShape.width() };
+    const topDistance = Math.max(topPos.x, fromPos.x) - Math.min(topPos.x, fromPos.x) + Math.max(topPos.y, fromPos.y) - Math.min(topPos.y, fromPos.y);
+    const leftDistance = Math.max(leftPos.x, fromPos.x) - Math.min(leftPos.x, fromPos.x) + Math.max(leftPos.y, fromPos.y) - Math.min(leftPos.y, fromPos.y);
+    const rightDistance = Math.max(rightPos.x, fromPos.x) - Math.min(rightPos.x, fromPos.x) + Math.max(rightPos.y, fromPos.y) - Math.min(rightPos.y, fromPos.y);
+    const bottomDistance = Math.max(bottomPos.x, fromPos.x) - Math.min(bottomPos.x, fromPos.x) + Math.max(bottomPos.y, fromPos.y) - Math.min(bottomPos.y, fromPos.y);
+    switch (Math.min(topDistance, leftDistance, rightDistance, bottomDistance)) {
+      case topDistance: {
+        return topPos;
+      }
+      case leftDistance: {
+        return leftPos;
+      }
+      case rightDistance: {
+        return rightPos;
+      }
+      case bottomDistance: {
+        return bottomPos;
+      }
+      default: {
+        return middlePoint;
+      }
+    }
+  }
+
+  groupSelectedShapes() {
+    //DO GROUPING
+    this.isShowContextMenu = false;
+  }
+
+  ungroupSelectedShapes() {
+    //DO UNGROUP
+    this.isShowContextMenu = false;
+  }
+
 }

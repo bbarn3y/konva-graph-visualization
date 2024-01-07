@@ -3,5 +3,6 @@
  */
 
 export enum ShapeType {
-    RECTANGLE = 'Rectangle'
+    RECTANGLE = 'Rectangle',
+    BREAKPOINT = 'Breakpoint'
 }

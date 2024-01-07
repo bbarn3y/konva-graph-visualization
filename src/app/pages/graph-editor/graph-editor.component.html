@@ -7,12 +7,12 @@
       <li>
         <button
         style="margin-right: 10px;"
-        (click)="selectedShape = undefined"
+        (click)="selectShape(undefined)"
         >
           <span>None</span>
         </button>
         <button
-        (click)="selectedShape = ShapeType.RECTANGLE"
+        (click)="selectShape(ShapeType.RECTANGLE)"
         [draggable]="true"
         (dragstart)="shapeMenuItemDragStarted(ShapeType.RECTANGLE, $event)">
           <span>Rectangle</span>
@@ -26,11 +26,20 @@
       </li>
     </ul>
   </div>
-  <div id="contextMenu" class="menu">
+  <div #contextMenu id="contextMenu" class="menu">
+    <ng-container *ngIf="isShowContextMenu">
+      <button *ngIf="!isGrouped" id="group_button" (click)="groupSelectedShapes()">Group</button>
+      <button *ngIf="isGrouped" id="ungroup_button" (click)="ungroupSelectedShapes()" >Ungoup</button>
+      <button *ngIf="clickedShape && clickedShape.type === ShapeType.RECTANGLE" id="ungroup"></button>
+      <button id="delete_button">Delete</button>
+    </ng-container>
+  </div>
+  <!-- <div id="contextMenu" class="menu">
     <div>
       <button id="delete_button">Group</button>
+      <button *ngIf="clickedShape && clickedShape.type === ShapeType.RECTANGLE" id="ungroup"></button>
     </div>
-  </div>
+  </div> -->
   <div
   #container
   id="container" 
