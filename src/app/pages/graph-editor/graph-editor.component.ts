@@ -17,6 +17,7 @@ import { Vector2d } from 'konva/lib/types';
 })
 export class GraphEditorComponent implements AfterViewInit {
   @ViewChild('container') containerElement?: ElementRef<HTMLDivElement>;
+  @ViewChild('contextMenu') contextMenuElement?: ElementRef<HTMLDivElement>;
   stage!: Konva.Stage;
   selectedLayer?: Konva.Layer;
   selectedShape?: ShapeType;
@@ -25,6 +26,7 @@ export class GraphEditorComponent implements AfterViewInit {
   groups: Konva.Group[] = [];
   //currentShape?: Konva.Shape;
   placeHolderShape?: Konva.Shape | Konva.Group;
+  clickedShape?: Konva.Shape;
   gridLayer?: Konva.Layer;
   //@TODO: Put in configuration
   fieldSize: number = 100;
@@ -32,6 +34,8 @@ export class GraphEditorComponent implements AfterViewInit {
   windowHeight: number = 300;
   scaleBy: number = 1.04;
   zoomLevel: number = 1
+  isShowContextMenu: boolean = false;
+  isGrouped: boolean = false;
   clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
   clampPos = (pos: Vector2d, min: number, max: number) => {
     return { x: Math.min(Math.max(pos.x, min), max), y: Math.min(Math.max(pos.y, min), max) }
@@ -98,12 +102,14 @@ export class GraphEditorComponent implements AfterViewInit {
       }
       const shape = event.target;
       //console.log('groupID ' + shape.attrs.groupId);
-      console.log(shape, shape.getType());
-      
-      
-      console.log('sr ', this.selectRectangle);
+      //console.log(shape, shape.getType());
+            
+      //console.log('sr ', this.selectRectangle);
       
       if (event.target === this.stage){
+
+          console.log(this.groups.length);
+          
           const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
         
           if(!selectedShapes) return;
@@ -155,29 +161,28 @@ export class GraphEditorComponent implements AfterViewInit {
           shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black')
         }
         
-        if (shape.attrs.groupId != -1 && shape.attrs.groupId !== undefined){
+        if (shape.attrs.group !== undefined){
           if (shape.attrs.isSelected) {
-            console.log('bruh ' + shape.attrs.groupId);
-            
-            const sameGroupShapes = this.stage?.find('Shape').filter(x => x.attrs.groupId === shape.attrs.groupId);
+
+            const sameGroupShapes = this.stage?.find('Shape').filter(x => x.attrs.group === shape.attrs.group);
           
             if(!sameGroupShapes) return;
             console.log(shape.attrs.groupId);
             
             sameGroupShapes.forEach(actShape => {
-              if (actShape instanceof Konva.Shape && actShape.attrs.groupId !== 'undefined'){
+              if (actShape instanceof Konva.Shape && actShape.attrs.group !== undefined){
                 actShape.attrs.isSelected = true;
                 actShape.stroke('yellow');
               }
             });
           }
           else {
-            const sameGroupShapes = this.stage?.find('Shape').filter(x => x.attrs.groupId === shape.attrs.groupId);
+            const sameGroupShapes = this.stage?.find('Shape').filter(x => x.attrs.group === shape.attrs.group);
           
             if(!sameGroupShapes) return;
             
             sameGroupShapes.forEach(actShape => {
-              if (actShape instanceof Konva.Shape && actShape.attrs.groupId !== 'undefined'){
+              if (actShape instanceof Konva.Shape && actShape.attrs.group !== undefined){
                 actShape.attrs.isSelected = false;
                 actShape.stroke('black');
               }
@@ -205,7 +210,7 @@ export class GraphEditorComponent implements AfterViewInit {
 
       if (!contextMenu) return;
 
-      contextMenu.style.display = 'none';
+      this.isShowContextMenu = false;
     });
     //@TODO: Should we need to move on stage? If yes we should move by holding middle mouse button
     //Dragging the stage
@@ -248,6 +253,38 @@ export class GraphEditorComponent implements AfterViewInit {
     })
 
     this.stage.on('contextmenu', (e) => {
+      e.evt.preventDefault();
+      this.isShowContextMenu = false;
+      
+      // Check if we are on an empty place of the stage
+      if (e.target === this.stage || this.selectedShape) {
+        return;
+      }
+      
+      if (!this.contextMenuElement) return;
+
+      if (e.target instanceof Konva.Shape)
+      {        
+        this.clickedShape = e.target;
+      }
+      
+      //Check if target is grouped or not
+      if(e.target.attrs?.group !== undefined) {
+        this.isGrouped = true;
+      } else {
+        this.isGrouped = false;
+      }
+      
+      
+      // Show context menu
+      this.isShowContextMenu = true;
+      // Set position based on the mouse pointer
+      this.contextMenuElement.nativeElement.style.top = e.evt.clientY + 'px';
+      this.contextMenuElement.nativeElement.style.left = e.evt.clientX + 'px';
+    })
+
+    /*
+    this.stage.on('contextmenu', (e) => {
       // prevent default behavior
       e.evt.preventDefault();
   
@@ -256,10 +293,19 @@ export class GraphEditorComponent implements AfterViewInit {
         return;
       }
 
+      //if (!this.contextMenuElement) return;
+
       //        if(!selectedShapes || selectedShapes.length <= 1) return;
 
   
       const currentShape = e.target;
+
+      //Check if target is grouped or not
+      if(e.target.attrs.group !== undefined) {
+        this.isGrouped = true;
+      } else {
+        this.isGrouped = false;
+      }
   
       // Get the context menu element
       const contextMenu = document.getElementById('contextMenu');
@@ -271,17 +317,48 @@ export class GraphEditorComponent implements AfterViewInit {
         contextMenu.style.left = e.evt.clientX + 'px';
 
         
-        
-
         // Handle context menu actions
         document.getElementById('group_button')?.addEventListener('click', () => {
           
           const group = new Konva.Group();
+          console.log("new group made");
+          
           group.attrs.id = this.getUniqueId(4);
 
           const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
         
           if(!selectedShapes) return;
+          
+          // preprocess shapes if already in group(s)
+
+          const isRegroupingNeeded = selectedShapes.some(x => x.attrs.group !== undefined)
+          
+          console.log(isRegroupingNeeded);
+          
+
+          const groupsToDelete: Konva.Group[] = [];
+
+          selectedShapes.forEach(actShape => {
+            if (actShape.attrs.group !== undefined && !groupsToDelete.includes(actShape.attrs.group)){
+              groupsToDelete.push(actShape.attrs.group)
+              console.log('need to delete ', actShape.attrs.group.attrs.id);
+              
+              actShape.attrs.group = undefined;
+            }
+          });
+
+          
+          groupsToDelete.forEach(actGroup => {
+            const index = this.groups.indexOf(actGroup);
+
+            //console.log('deleted ', actGroup.attrs.groupId, ' at index', index);
+            
+
+            if (index !== -1) {
+              this.groups.splice(index, 1);
+            }
+          });
+          
     
           selectedShapes.forEach(actShape => {
           
@@ -302,6 +379,7 @@ export class GraphEditorComponent implements AfterViewInit {
           this.groups.push(group);
           contextMenu.style.display = 'none';
         });
+        
 
         document.getElementById('ungroup_button')?.addEventListener('click', () => {
           const group = currentShape.attrs.group;
@@ -327,7 +405,7 @@ export class GraphEditorComponent implements AfterViewInit {
         // Add other context menu options and their respective handlers as needed
       }
     });
-
+    */
     
 
     this.stage.on('mousedown', (event) => {
@@ -383,6 +461,7 @@ export class GraphEditorComponent implements AfterViewInit {
         });
 
         this.selectRectangle.destroy();
+        this.selectRectangle = undefined;
         this.selectedLayer?.batchDraw();
       }
     });
@@ -713,6 +792,136 @@ export class GraphEditorComponent implements AfterViewInit {
     }
     return stringArr.join('-');
   }
+
+  public groupSelectedShapes() : void
+  {
+    const group = new Konva.Group();
+    console.log("new group made");
+    
+    group.attrs.id = this.getUniqueId(4);
+
+    const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
+  
+    if(!selectedShapes) return;
+    
+    // preprocess shapes if already in group(s)
+
+    const isRegroupingNeeded = selectedShapes.some(x => x.attrs.group !== undefined)
+    
+    console.log(isRegroupingNeeded);
+    
+
+    const groupsToDelete: Konva.Group[] = [];
+
+    selectedShapes.forEach(actShape => {
+      if (actShape.attrs.group !== undefined && !groupsToDelete.includes(actShape.attrs.group)){
+        groupsToDelete.push(actShape.attrs.group)
+        console.log('need to delete ', actShape.attrs.group.attrs.id);
+        
+        actShape.attrs.group = undefined;
+      }
+    });
+
+    
+    groupsToDelete.forEach(actGroup => {
+      const index = this.groups.indexOf(actGroup);
+
+      //console.log('deleted ', actGroup.attrs.groupId, ' at index', index);
+      
+
+      if (index !== -1) {
+        this.groups.splice(index, 1);
+      }
+    });
+    
+
+    selectedShapes.forEach(actShape => {
+    
+      if (actShape instanceof Konva.Shape){
+        actShape.stroke('black');
+        actShape.attrs.groupId = group.attrs.id;
+        actShape.attrs.group = group;
+        group.add(actShape);
+      }
+      actShape.attrs.isSelected = false;
+    });
+
+    //currentShape.attrs.group = group;
+    console.log(group.attrs.id);
+    
+    this.selectedLayer?.add(group);
+    this.selectedLayer?.draw();
+    this.groups.push(group);
+    this.isShowContextMenu = false;
+  }
+
+  public ungroupSelectedShapes(): void {
+
+    const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
+  
+    if(!selectedShapes) return;
+    
+    // preprocess shapes if already in group(s)
+
+    const groupToDelete = this.clickedShape?.attrs.group;
+    console.log(groupToDelete);
+
+    selectedShapes.forEach(actShape => {
+      if (actShape.attrs.group === groupToDelete){
+        actShape.attrs.group = undefined;
+      }
+      if (actShape instanceof Konva.Shape){
+        actShape.stroke('black');
+      }
+      actShape.attrs.isSelected = false;
+    });
+    
+    /*
+    selectedShapes.forEach(actShape => {
+      if (actShape.attrs.group !== undefined && !groupsToDelete.includes(actShape.attrs.group)){
+        groupsToDelete.push(actShape.attrs.group)
+        console.log('need to delete ', actShape.attrs.group.attrs.id);
+        
+        actShape.attrs.group = undefined;
+      }
+    });
+
+    
+    groupsToDelete.forEach(actGroup => {
+      const index = this.groups.indexOf(actGroup);
+
+      //console.log('deleted ', actGroup.attrs.groupId, ' at index', index);
+      
+
+      if (index !== -1) {
+        this.groups.splice(index, 1);
+      }
+    });
+    
+    /*
+    selectedShapes.forEach(actShape => {
+    
+      if (actShape instanceof Konva.Shape){
+        actShape.stroke('black');
+        actShape.attrs.groupId = group.attrs.id;
+        actShape.attrs.group = group;
+        group.add(actShape);
+      }
+      actShape.attrs.isSelected = false;
+    });
+
+    //currentShape.attrs.group = group;
+    console.log(group.attrs.id);
+    
+    this.selectedLayer?.add(group);
+    this.selectedLayer?.draw();
+    this.groups.push(group);
+    */
+
+    this.isShowContextMenu = false;
+  }
+
+
 
 /*
   showContextMenu(event: MouseEvent): void {

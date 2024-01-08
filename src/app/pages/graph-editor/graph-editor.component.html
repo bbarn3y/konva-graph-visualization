@@ -26,11 +26,12 @@
       </li>
     </ul>
   </div>
-  <div id="contextMenu" class="menu">
-    <div>
-      <button id="group_button">Group</button>
+  <div #contextMenu id="contextMenu" class="menu">
+    <ng-container *ngIf="isShowContextMenu">
+      <button *ngIf="!isGrouped" id="group_button" (click)="groupSelectedShapes()">Group</button>
+      <button *ngIf="isGrouped" id="ungroup_button" (click)="ungroupSelectedShapes()" >Ungoup</button>
       <button id="delete_button">Delete</button>
-    </div>
+    </ng-container>
   </div>
   <div
   #container
