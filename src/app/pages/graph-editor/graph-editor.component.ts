@@ -253,7 +253,7 @@ export class GraphEditorComponent implements AfterViewInit {
       }
       
       //Check if target is grouped or not
-      if(e.target.attrs?.group !== undefined) {
+      if(e.target.attrs?.group !== undefined && e.target.attrs?.isSelected) {
         this.isGrouped = true;
       } else {
         this.isGrouped = false;
@@ -261,7 +261,7 @@ export class GraphEditorComponent implements AfterViewInit {
 
       //Check if all the selected shapes are in the same group
       const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
-      this.onlySameGroupElements = (selectedShapes.every(shape => shape.attrs.group === selectedShapes[0].attrs.group) || e.target.attrs.isSelected) && selectedShapes.length > 1;
+      this.onlySameGroupElements = selectedShapes.every(shape => shape.attrs.group === selectedShapes[0].attrs.group && shape.attrs.group !== undefined) || selectedShapes.length < 2;
       console.log(selectedShapes.length);
       
       console.log("samegroup", this.onlySameGroupElements, selectedShapes.length);
@@ -721,6 +721,7 @@ export class GraphEditorComponent implements AfterViewInit {
     this.selectedLayer?.draw();
     this.groups.push(group);
     this.isShowContextMenu = false;
+    this.clickedShape = undefined;
   }
 
   //Ungroups the selected shapes
@@ -751,6 +752,7 @@ export class GraphEditorComponent implements AfterViewInit {
 
     
     this.isShowContextMenu = false;
+    this.clickedShape = undefined;
   }
 
   //Deletes the clicked shape
@@ -767,7 +769,7 @@ export class GraphEditorComponent implements AfterViewInit {
         actShape.attrs.group = undefined;
       });
 
-      //this.groups.filter(group => group !== groupToDelete);
+      //this.groups = this.groups.filter(group => group !== groupToDelete);
       const index = this.groups.indexOf(groupToDelete);
       if (index !== -1) {
         this.groups.splice(index, 1);
@@ -776,6 +778,7 @@ export class GraphEditorComponent implements AfterViewInit {
 
     this.clickedShape.destroy();
     this.isShowContextMenu = false;
+    this.clickedShape = undefined;
 
     const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
   
