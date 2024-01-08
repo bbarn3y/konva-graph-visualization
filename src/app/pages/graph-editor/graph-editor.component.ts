@@ -36,6 +36,7 @@ export class GraphEditorComponent implements AfterViewInit {
   zoomLevel: number = 1
   isShowContextMenu: boolean = false;
   isGrouped: boolean = false;
+  onlySameGroupElements: boolean = false;
   clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
   clampPos = (pos: Vector2d, min: number, max: number) => {
     return { x: Math.min(Math.max(pos.x, min), max), y: Math.min(Math.max(pos.y, min), max) }
@@ -274,6 +275,13 @@ export class GraphEditorComponent implements AfterViewInit {
       } else {
         this.isGrouped = false;
       }
+
+      //Check if all the selected shapes are in the same group
+      const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
+      this.onlySameGroupElements = (selectedShapes.every(shape => shape.attrs.group === selectedShapes[0].attrs.group) || e.target.attrs.isSelected) && selectedShapes.length > 1;
+      console.log(selectedShapes.length);
+      
+      console.log("samegroup", this.onlySameGroupElements, selectedShapes.length);
       
       
       // Show context menu
@@ -921,7 +929,25 @@ export class GraphEditorComponent implements AfterViewInit {
     this.isShowContextMenu = false;
   }
 
+  public deleteShape(): void {
 
+    if (this.clickedShape === undefined) return;
+
+    const sameGroupShapes = this.stage?.find('Shape').filter(x => x.attrs.group === this.clickedShape?.attrs.group);
+
+    if (sameGroupShapes.length < 3){
+      const GroupToDelete = this.clickedShape.attrs.group;
+      
+      sameGroupShapes.forEach(actShape => {
+        actShape.attrs.group = undefined;
+      });
+
+      //this.groups.remove
+    }
+
+
+    this.clickedShape.destroy();
+  }
 
 /*
   showContextMenu(event: MouseEvent): void {

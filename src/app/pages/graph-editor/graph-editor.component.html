@@ -28,7 +28,7 @@
   </div>
   <div #contextMenu id="contextMenu" class="menu">
     <ng-container *ngIf="isShowContextMenu">
-      <button *ngIf="!isGrouped" id="group_button" (click)="groupSelectedShapes()">Group</button>
+      <button *ngIf="onlySameGroupElements" id="group_button" (click)="groupSelectedShapes()">Group</button>
       <button *ngIf="isGrouped" id="ungroup_button" (click)="ungroupSelectedShapes()" >Ungoup</button>
       <button id="delete_button">Delete</button>
     </ng-container>
