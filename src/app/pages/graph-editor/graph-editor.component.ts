@@ -102,11 +102,6 @@ export class GraphEditorComponent implements AfterViewInit {
         this.drawShape(this.selectedShape, pointerPosition.x, pointerPosition.y, true);
       }
       const shape = event.target;
-      //console.log('groupID ' + shape.attrs.groupId);
-      //console.log(shape, shape.getType());
-      console.log("group lenth", this.groups.length);
-      
-      //console.log('sr ', this.selectRectangle);
       
       if (event.target === this.stage){
 
@@ -194,19 +189,6 @@ export class GraphEditorComponent implements AfterViewInit {
 
         
       }
-      // else
-      // {
-      //   const allShapes = this.stage?.find('Shape');
-        
-      //   if(!allShapes) return;
-
-      //   allShapes.forEach(actShape => {
-      //     actShape.attrs.isSelected = false;
-      //     if (actShape instanceof Konva.Shape){
-      //       actShape.stroke('black');
-      //     }
-      //   });
-      // }
 
       const contextMenu = document.getElementById('contextMenu');
 
@@ -602,10 +584,10 @@ export class GraphEditorComponent implements AfterViewInit {
     console.log('DragEnd', e);
   }
 
+  //A selected shape will be unselected
   removeSelectionOnShapes() 
   {
     const allShapes = this.stage?.find('Shape');
-    //console.log(allShapes?.length);
     
     if (!allShapes) return;
 
@@ -618,6 +600,7 @@ export class GraphEditorComponent implements AfterViewInit {
     });
   }
 
+  //Gets all shapes that are in the select area
   getAllShapesInSelection(): Konva.Shape[] {
     const selectedShapes: Konva.Shape[] = [];
     const selectionRect = this.selectRectangle;
@@ -652,6 +635,7 @@ export class GraphEditorComponent implements AfterViewInit {
     return selectedShapes;
   }
   
+  //Check if given point is in select area
   private isPointWithinSelection(x: number, y: number): boolean {
     const selectionRect = this.selectRectangle;
   
@@ -667,6 +651,9 @@ export class GraphEditorComponent implements AfterViewInit {
     return x >= x1 && x <= x2 && y >= y1 && y <= y2;
   }
 
+  //Creates a unique 4bit format id
+  //Given number in the parameter defines how many 4bit parts should the id contain
+  //4bit parts separated by '-' character
   private getUniqueId(parts: number): string {
     const stringArr = [];
     for(let i = 0; i< parts; i++){
@@ -677,6 +664,8 @@ export class GraphEditorComponent implements AfterViewInit {
     return stringArr.join('-');
   }
 
+  //Groups the selected shapes
+  //Works on already grouped shapes
   public groupSelectedShapes() : void
   {
     const group = new Konva.Group();
@@ -689,7 +678,6 @@ export class GraphEditorComponent implements AfterViewInit {
     if(!selectedShapes) return;
     
     // preprocess shapes if already in group(s)
-
     const isRegroupingNeeded = selectedShapes.some(x => x.attrs.group !== undefined)
     
     console.log(isRegroupingNeeded);
@@ -706,19 +694,15 @@ export class GraphEditorComponent implements AfterViewInit {
       }
     });
 
-    
     groupsToDelete.forEach(actGroup => {
-      const index = this.groups.indexOf(actGroup);
-
-      //console.log('deleted ', actGroup.attrs.groupId, ' at index', index);
-      
+      const index = this.groups.indexOf(actGroup);     
 
       if (index !== -1) {
         this.groups.splice(index, 1);
       }
     });
     
-
+    // groups all the shapes that are selected
     selectedShapes.forEach(actShape => {
     
       if (actShape instanceof Konva.Shape){
@@ -739,14 +723,13 @@ export class GraphEditorComponent implements AfterViewInit {
     this.isShowContextMenu = false;
   }
 
+  //Ungroups the selected shapes
   public ungroupSelectedShapes(): void {
 
     const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
   
     if(!selectedShapes) return;
     
-    // preprocess shapes if already in group(s)
-
     const groupToDelete = this.clickedShape?.attrs.group;
     console.log(groupToDelete);
 
@@ -770,6 +753,7 @@ export class GraphEditorComponent implements AfterViewInit {
     this.isShowContextMenu = false;
   }
 
+  //Deletes the clicked shape
   public deleteShape(): void {
 
     if (this.clickedShape === undefined) return;
