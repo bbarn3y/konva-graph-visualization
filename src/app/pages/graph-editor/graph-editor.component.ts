@@ -103,6 +103,8 @@ export class GraphEditorComponent implements AfterViewInit {
       }
       const shape = event.target;
       
+      //// this if elseif can be 1 block/method
+      // unselect the already selected shapes if clicked on stage
       if (event.target === this.stage){
 
           console.log(this.groups.length);
@@ -131,6 +133,8 @@ export class GraphEditorComponent implements AfterViewInit {
           shape.attrs.unselectShape();
         }
         */
+        //// this if elseif can be 1 block/method
+        // handling shape selection and unselection with ctrl key
         if (event.evt.ctrlKey)
         {
           if (shape.attrs.isSelected){
@@ -142,6 +146,7 @@ export class GraphEditorComponent implements AfterViewInit {
             shape.stroke('yellow');
           }
         }
+        // removing selecton of unclicked shapes
         else if (shape instanceof Konva.Shape) {  
           const selectedShapes = this.stage?.find('Shape').filter(x => x.attrs.isSelected);
         
@@ -158,6 +163,8 @@ export class GraphEditorComponent implements AfterViewInit {
           shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black')
         }
         
+        //// this if else can be 1 block/method
+        // selecting all shapes of the group connected to the clicked shape if grouped
         if (shape.attrs.group !== undefined){
           if (shape.attrs.isSelected) {
 
@@ -173,6 +180,7 @@ export class GraphEditorComponent implements AfterViewInit {
               }
             });
           }
+          // unselecting all grouped shapes when clicking on anything but same group member shape 
           else {
             const sameGroupShapes = this.stage?.find('Shape').filter(x => x.attrs.group === shape.attrs.group);
           
