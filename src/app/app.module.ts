@@ -11,16 +11,9 @@ import { GraphEditorComponent } from './pages/graph-editor/graph-editor.componen
 import { RouterModule } from '@angular/router';
 
 @NgModule({
-  declarations: [
-    AppComponent,
-    GraphEditorComponent,
-  ],
-  imports: [
-    BrowserModule,
-    AppRoutingModule,
-    RouterModule
-  ],
+  declarations: [AppComponent, GraphEditorComponent],
+  imports: [BrowserModule, AppRoutingModule, RouterModule],
   providers: [],
-  bootstrap: [AppComponent]
+  bootstrap: [AppComponent],
 })
-export class AppModule { }
+export class AppModule {}

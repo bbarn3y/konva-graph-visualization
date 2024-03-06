@@ -1,41 +1,39 @@
-
 .header {
-    width: 100%;
-    height: 50px;
+  width: 100%;
+  height: 50px;
 }
 
 .editor {
-    border: 2px solid black;
+  border: 2px solid black;
+  border-radius: 5px;
+  .toolbar {
+    padding: 5px;
+    height: 30px;
+    background: white;
     border-radius: 5px;
-    .toolbar {
-        padding: 5px;
-        height: 30px;
-        background: white;
-        border-radius: 5px;
-        filter: brightness(0.8);
-        -webkit-filter: brightness(0.8);
-        -moz-filter: brightness(0.8);
-        -o-filter: brightness(0.8);
-        -ms-filter: brightness(0.8);
+    filter: brightness(0.8);
+    -webkit-filter: brightness(0.8);
+    -moz-filter: brightness(0.8);
+    -o-filter: brightness(0.8);
+    -ms-filter: brightness(0.8);
 
-        ul {
-            list-style: none;
-            ;
-            margin: 0;
-            padding: 0;
-        }
-
-        li {
-            display: inline-block;
-            margin-right: 10px;
-        }
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
     }
+
+    li {
+      display: inline-block;
+      margin-right: 10px;
+    }
+  }
 }
 
 #container {
-    background: white;
-    border-top: 1px solid black;
-    //cursor: grab;
+  background: white;
+  border-top: 1px solid black;
+  //cursor: grab;
 }
 
 #contextMenu {
@@ -59,5 +57,3 @@
 #contextMenu button:hover {
   background-color: lightgray;
 }
-
-

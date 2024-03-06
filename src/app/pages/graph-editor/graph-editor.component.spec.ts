@@ -8,7 +8,7 @@ describe('GraphEditorComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      declarations: [GraphEditorComponent]
+      declarations: [GraphEditorComponent],
     });
     fixture = TestBed.createComponent(GraphEditorComponent);
     component = fixture.componentInstance;

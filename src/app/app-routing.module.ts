@@ -10,17 +10,17 @@ import { GraphEditorComponent } from './pages/graph-editor/graph-editor.componen
 const routes: Routes = [
   {
     path: '',
-    redirectTo: PageRoutes.editor, 
-    pathMatch: 'prefix'
+    redirectTo: PageRoutes.editor,
+    pathMatch: 'prefix',
   },
   {
     path: PageRoutes.editor,
-    component: GraphEditorComponent
-  }
+    component: GraphEditorComponent,
+  },
 ];
 
 @NgModule({
   imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule]
+  exports: [RouterModule],
 })
-export class AppRoutingModule { }
+export class AppRoutingModule {}

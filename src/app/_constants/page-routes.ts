@@ -3,5 +3,5 @@
  */
 
 export class PageRoutes {
-    public static editor = `editor`;
+  public static editor = `editor`;
 }
