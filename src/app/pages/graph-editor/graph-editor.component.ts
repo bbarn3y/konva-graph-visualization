@@ -261,11 +261,9 @@ export class GraphEditorComponent implements AfterViewInit {
         this.drawShape(this.selectedShape, snapPos.x, snapPos.y, true);
       }
 
-      // Unselect the already selected shapes if clicked on stage
+      // Handling shape selection and unselection
       if (clickTarget === this.stage) {
-        const selectedShapes = this.stage
-          ?.find('Shape')
-          .filter((x) => x.attrs.isSelected);
+        const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
 
         if (!selectedShapes) return;
 
@@ -275,23 +273,34 @@ export class GraphEditorComponent implements AfterViewInit {
             actShape.stroke('black');
           }
         });
-      } else if (
-        clickTarget instanceof Konva.Shape &&
+      } else if (clickTarget instanceof Konva.Shape &&
         event.evt.button !== 2 &&
-        !this.selectedShape
-      ) {
+        !this.selectedShape) {
+        
         /*
-        if (!shape.attrs.isSelected){
-          console.log("not selected");
-          
-          shape.attrs.selectShape();
+        if (event.evt.ctrlKey) {
+          if (clickTarget.attrs.isSelected) {
+            clickTarget.attrs.unselectShape(clickTarget);
+          } else {
+            clickTarget.attrs.selectShape(clickTarget);
+          }
         }
-        else{
-          console.log("selected");
-          shape.attrs.unselectShape();
+        else if (clickTarget instanceof Konva.Shape) {
+          const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
+          console.log(selectedShapes);
+          
+          if (!selectedShapes) return;
+
+          selectedShapes.forEach((actShape) => {
+            if (actShape instanceof Konva.Shape) {
+              actShape.attrs.unselectShape(actShape);
+            }
+          });
+
+          clickTarget.attrs.isSelected ? clickTarget.attrs.unselectShape(clickTarget) : clickTarget.attrs.selectShape(clickTarget); 
         }
         */
-        // handling shape selection and unselection with ctrl key
+       
         if (event.evt.ctrlKey) {
           if (clickTarget.attrs.isSelected) {
             clickTarget.attrs.isSelected = false;
@@ -301,11 +310,8 @@ export class GraphEditorComponent implements AfterViewInit {
             clickTarget.stroke('yellow');
           }
         }
-        // removing selecton of unclicked shapes
         else if (clickTarget instanceof Konva.Shape) {
-          const selectedShapes = this.stage
-            ?.find('Shape')
-            .filter((x) => x.attrs.isSelected);
+          const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
 
           if (!selectedShapes) return;
 
@@ -319,14 +325,11 @@ export class GraphEditorComponent implements AfterViewInit {
           clickTarget.attrs.isSelected = !clickTarget.attrs.isSelected;
           clickTarget.stroke(clickTarget.attrs.isSelected ? 'yellow' : 'black');
         }
-
-        //// this if else can be 1 block/method
-        // selecting all shapes of the group connected to the clicked shape if grouped
+        
+        // Handling group selection and unselection
         if (clickTarget.attrs.group !== undefined) {
           if (clickTarget.attrs.isSelected) {
-            const sameGroupShapes = this.stage
-              ?.find('Shape')
-              .filter((x) => x.attrs.group === clickTarget.attrs.group);
+            const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === clickTarget.attrs.group);
 
             if (!sameGroupShapes) return;
 
@@ -340,11 +343,8 @@ export class GraphEditorComponent implements AfterViewInit {
               }
             });
           }
-          // unselecting all grouped shapes when clicking on anything but same group member shape
           else {
-            const sameGroupShapes = this.stage
-              ?.find('Shape')
-              .filter((x) => x.attrs.group === clickTarget.attrs.group);
+            const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === clickTarget.attrs.group);
 
             if (!sameGroupShapes) return;
 
@@ -436,9 +436,7 @@ export class GraphEditorComponent implements AfterViewInit {
       }
 
       //Check if all the selected shapes are in the same group
-      const selectedShapes = this.stage
-        ?.find('Shape')
-        .filter((x) => x.attrs.isSelected);
+      const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
       this.onlySameGroupElements =
         selectedShapes.every(
           (shape) =>
@@ -613,6 +611,8 @@ export class GraphEditorComponent implements AfterViewInit {
 
       shape.attrs.id = GraphEditorComponent.IdCount++;
       this.selectedLayer.add(shape);
+      console.log(shape);
+      
       return shape;
     } else {
       return;
@@ -895,9 +895,7 @@ export class GraphEditorComponent implements AfterViewInit {
 
     group.attrs.id = this.getUniqueId(4);
 
-    const selectedShapes = this.stage
-      ?.find('Shape')
-      .filter((x) => x.attrs.isSelected);
+    const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
 
     if (!selectedShapes) return;
 
@@ -949,9 +947,7 @@ export class GraphEditorComponent implements AfterViewInit {
 
   //Ungroups the selected shapes
   public ungroupSelectedShapes(): void {
-    const selectedShapes = this.stage
-      ?.find('Shape')
-      .filter((x) => x.attrs.isSelected);
+    const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
 
     if (!selectedShapes) return;
 
@@ -981,9 +977,7 @@ export class GraphEditorComponent implements AfterViewInit {
   public deleteShape(): void {
     if (this.clickedShape === undefined) return;
 
-    const sameGroupShapes = this.stage
-      ?.find('Shape')
-      .filter((x) => x.attrs.group === this.clickedShape?.attrs.group);
+    const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === this.clickedShape?.attrs.group);
 
     if (sameGroupShapes.length < 3) {
       const groupToDelete = this.clickedShape.attrs.group;
@@ -1003,9 +997,7 @@ export class GraphEditorComponent implements AfterViewInit {
     this.isShowContextMenu = false;
     this.clickedShape = undefined;
 
-    const selectedShapes = this.stage
-      ?.find('Shape')
-      .filter((x) => x.attrs.isSelected);
+    const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
 
     if (!selectedShapes) return;
 

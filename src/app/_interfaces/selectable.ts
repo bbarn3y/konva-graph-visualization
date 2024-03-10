@@ -1,5 +1,7 @@
-export class Selectable {
-  selectShape() {}
+import Konva from "konva";
 
-  unselectShape() {}
+export class Selectable {
+  selectShape(shape: Konva.Shape) {}
+
+  unselectShape(shape: Konva.Shape) {}
 }

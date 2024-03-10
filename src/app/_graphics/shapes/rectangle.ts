@@ -56,19 +56,21 @@ export class RectangleShape implements Selectable {
     return rect;
   }
 
-  selectShape() {
-    console.log('asd');
+  selectShape(shape: Konva.Shape) {
+    console.log('asd ' + shape);
 
-    if (this.konvaShape instanceof Konva.Shape) {
-      this.konvaShape.attrs.stroke('yellow');
-      this.konvaShape.attrs.isSelected = true;
+    if (shape instanceof Konva.Shape) {
+      shape.stroke('yellow');
+      //shape.attrs.stroke('yellow');
+      shape.attrs.isSelected = true;
     }
   }
 
-  unselectShape() {
-    if (this.konvaShape instanceof Konva.Shape) {
-      this.konvaShape.attrs.stroke('black');
-      this.konvaShape.attrs.isSelected = false;
+  unselectShape(shape: Konva.Shape) {
+    if (shape instanceof Konva.Shape) {
+      shape.stroke('black');
+      //shape.attrs.stroke('black');
+      shape.attrs.isSelected = false;
     }
   }
 }
