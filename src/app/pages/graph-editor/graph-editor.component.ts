@@ -211,18 +211,18 @@ export class GraphEditorComponent implements AfterViewInit {
       }
       const pointerPosition = this.stage?.getRelativePointerPosition();
       if (!pointerPosition) return;
-      const shape = event.target;
+      const clickTarget = event.target;
       const snapPos = this.calculateGridSnapPosition(pointerPosition);
 
       //Draw arrow to shape
       if (
         (this.isDrawingLine &&
           this.currentLineId &&
-          shape instanceof Konva.Shape) ||
-        shape instanceof Konva.Group
+          clickTarget instanceof Konva.Shape) ||
+          clickTarget instanceof Konva.Group
       ) {
         //this.addArrow(this.calculateCenterPosition(shape));
-        this.addArrow(this.calculateConnectionPosition(pointerPosition, shape));
+        this.addArrow(this.calculateConnectionPosition(pointerPosition, clickTarget));
       } else if (this.isDrawingLine && this.currentLineId) {
         const points = this.placeholderArrow.points();
         if (!this.breakpointsById[this.currentLineId])
@@ -261,9 +261,8 @@ export class GraphEditorComponent implements AfterViewInit {
         this.drawShape(this.selectedShape, snapPos.x, snapPos.y, true);
       }
 
-      //// this if elseif can be 1 block/method
-      // unselect the already selected shapes if clicked on stage
-      if (event.target === this.stage) {
+      // Unselect the already selected shapes if clicked on stage
+      if (clickTarget === this.stage) {
         const selectedShapes = this.stage
           ?.find('Shape')
           .filter((x) => x.attrs.isSelected);
@@ -277,7 +276,7 @@ export class GraphEditorComponent implements AfterViewInit {
           }
         });
       } else if (
-        shape instanceof Konva.Shape &&
+        clickTarget instanceof Konva.Shape &&
         event.evt.button !== 2 &&
         !this.selectedShape
       ) {
@@ -292,19 +291,18 @@ export class GraphEditorComponent implements AfterViewInit {
           shape.attrs.unselectShape();
         }
         */
-        //// this if elseif can be 1 block/method
         // handling shape selection and unselection with ctrl key
         if (event.evt.ctrlKey) {
-          if (shape.attrs.isSelected) {
-            shape.attrs.isSelected = false;
-            shape.stroke('black');
+          if (clickTarget.attrs.isSelected) {
+            clickTarget.attrs.isSelected = false;
+            clickTarget.stroke('black');
           } else {
-            shape.attrs.isSelected = true;
-            shape.stroke('yellow');
+            clickTarget.attrs.isSelected = true;
+            clickTarget.stroke('yellow');
           }
         }
         // removing selecton of unclicked shapes
-        else if (shape instanceof Konva.Shape) {
+        else if (clickTarget instanceof Konva.Shape) {
           const selectedShapes = this.stage
             ?.find('Shape')
             .filter((x) => x.attrs.isSelected);
@@ -318,17 +316,17 @@ export class GraphEditorComponent implements AfterViewInit {
             }
           });
 
-          shape.attrs.isSelected = !shape.attrs.isSelected;
-          shape.stroke(shape.attrs.isSelected ? 'yellow' : 'black');
+          clickTarget.attrs.isSelected = !clickTarget.attrs.isSelected;
+          clickTarget.stroke(clickTarget.attrs.isSelected ? 'yellow' : 'black');
         }
 
         //// this if else can be 1 block/method
         // selecting all shapes of the group connected to the clicked shape if grouped
-        if (shape.attrs.group !== undefined) {
-          if (shape.attrs.isSelected) {
+        if (clickTarget.attrs.group !== undefined) {
+          if (clickTarget.attrs.isSelected) {
             const sameGroupShapes = this.stage
               ?.find('Shape')
-              .filter((x) => x.attrs.group === shape.attrs.group);
+              .filter((x) => x.attrs.group === clickTarget.attrs.group);
 
             if (!sameGroupShapes) return;
 
@@ -346,7 +344,7 @@ export class GraphEditorComponent implements AfterViewInit {
           else {
             const sameGroupShapes = this.stage
               ?.find('Shape')
-              .filter((x) => x.attrs.group === shape.attrs.group);
+              .filter((x) => x.attrs.group === clickTarget.attrs.group);
 
             if (!sameGroupShapes) return;
 
