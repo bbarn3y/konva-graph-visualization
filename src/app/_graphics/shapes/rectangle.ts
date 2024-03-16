@@ -2,17 +2,18 @@
  * <<licensetext>>
  */
 import Konva from 'konva';
+import { Shape, ShapeConfig } from 'konva/lib/Shape';
 import { Colors } from 'src/app/_constants/colors';
 import { Selectable } from 'src/app/_interfaces/selectable';
 import { ShapeType } from 'src/app/_models/shape-type';
-export class RectangleShape implements Selectable {
+export class RectangleShape extends Shape implements Selectable {
   stage: Konva.Stage;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  draggable: boolean;
-  id?: number;
+  // override x: number;
+  // override y: number;
+  // width: number;
+  // height: number;
+  // draggable: boolean;
+  // id?: number;
   groupId: string = '';
   konvaShape: Konva.Rect;
 
@@ -24,30 +25,39 @@ export class RectangleShape implements Selectable {
     height: number,
     draggable = false
   ) {
+    super({} as ShapeConfig);
     this.stage = stage;
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-    this.draggable = draggable;
+    this.setAttrs({ x, y, width, height, draggable });
+    // this.x = x;
+    // this.y = y;
+    // this.width = width;
+    // this.height = height;
+    // this.draggable = draggable;
 
     this.konvaShape = this.shape();
+    console.log("CONTRUCTOR " + JSON.stringify(this.konvaShape));
+    
   }
 
-  draw(layer: Konva.Layer) {
+  drawShape(layer: Konva.Layer) {
     layer.add(this.konvaShape);
   }
 
   shape() {
     const rect = new Konva.Rect({
-      x: this.x,
-      y: this.y,
-      width: this.width,
-      height: this.height,
+      x: this.x(),
+      y: this.y(),
+      width: this.width(),
+      height: this.height(),
+      draggable: this.draggable(),
+      // x: this.x,
+      // y: this.y,
+      // width: this.width,
+      // height: this.height,
       fill: Colors.defaultBg,
       stroke: 'black',
       strokeWidth: 4,
-      draggable: this.draggable,
+      // draggable: this.draggable,
       type: ShapeType.RECTANGLE,
       selectShape: this.selectShape,
       unselectShape: this.unselectShape,
@@ -56,21 +66,24 @@ export class RectangleShape implements Selectable {
     return rect;
   }
 
-  selectShape(shape: Konva.Shape) {
-    console.log('asd ' + shape);
+  selectShape() {
+    //console.log('asd ' + shape);
 
-    if (shape instanceof Konva.Shape) {
-      shape.stroke('yellow');
-      //shape.attrs.stroke('yellow');
-      shape.attrs.isSelected = true;
-    }
+    //if (shape instanceof Konva.Shape) {
+      //shape.stroke('yellow');
+      console.log("Select " + JSON.stringify(this) + " " + this.konvaShape);
+      
+      this.konvaShape.stroke('yellow');
+      //this.konvaShape.isSelected = true;
+      this.attrs.isSelected = true;
+    //}
   }
 
-  unselectShape(shape: Konva.Shape) {
-    if (shape instanceof Konva.Shape) {
-      shape.stroke('black');
-      //shape.attrs.stroke('black');
-      shape.attrs.isSelected = false;
-    }
+  unselectShape() {
+    //if (shape instanceof Konva.Shape) {
+      //shape.stroke('black');
+      this.konvaShape.stroke('black');
+      this.attrs.isSelected = false;
+    //}
   }
 }

@@ -277,7 +277,7 @@ export class GraphEditorComponent implements AfterViewInit {
         event.evt.button !== 2 &&
         !this.selectedShape) {
         
-        /*
+        
         if (event.evt.ctrlKey) {
           if (clickTarget.attrs.isSelected) {
             clickTarget.attrs.unselectShape(clickTarget);
@@ -299,8 +299,8 @@ export class GraphEditorComponent implements AfterViewInit {
 
           clickTarget.attrs.isSelected ? clickTarget.attrs.unselectShape(clickTarget) : clickTarget.attrs.selectShape(clickTarget); 
         }
-        */
-       
+        
+       /*
         if (event.evt.ctrlKey) {
           if (clickTarget.attrs.isSelected) {
             clickTarget.attrs.isSelected = false;
@@ -325,7 +325,7 @@ export class GraphEditorComponent implements AfterViewInit {
           clickTarget.attrs.isSelected = !clickTarget.attrs.isSelected;
           clickTarget.stroke(clickTarget.attrs.isSelected ? 'yellow' : 'black');
         }
-        
+        */
         // Handling group selection and unselection
         if (clickTarget.attrs.group !== undefined) {
           if (clickTarget.attrs.isSelected) {
@@ -540,14 +540,20 @@ export class GraphEditorComponent implements AfterViewInit {
       let shape;
       switch (shapeType) {
         case ShapeType.RECTANGLE:
-          shape = new RectangleShape(
+          let shape2 = new RectangleShape(
             this.stage,
             x,
             y,
             shapeSize.x,
             shapeSize.y,
             draggable
-          ).shape();
+          );//.shape();
+          console.log("custom rect " + JSON.stringify(shape2));
+          
+          
+          shape = shape2.konvaShape;
+          console.log("shape " + shape);
+          
           shape.on('dragstart', (e) => {
             this.placeholderConnection.opacity(0);
             e.currentTarget.moveToTop();

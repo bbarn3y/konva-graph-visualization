@@ -1,7 +1,7 @@
 import Konva from "konva";
 
 export class Selectable {
-  selectShape(shape: Konva.Shape) {}
+  selectShape() {}
 
-  unselectShape(shape: Konva.Shape) {}
+  unselectShape() {}
 }
