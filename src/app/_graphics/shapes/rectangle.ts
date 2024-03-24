@@ -15,7 +15,7 @@ export class RectangleShape extends Shape implements Selectable {
   // draggable: boolean;
   // id?: number;
   groupId: string = '';
-  konvaShape: Konva.Rect;
+  isSelected: boolean = false;
 
   constructor(
     stage: Konva.Stage,
@@ -23,7 +23,8 @@ export class RectangleShape extends Shape implements Selectable {
     y: number,
     width: number,
     height: number,
-    draggable = false
+    draggable = false,
+    selectedLayer: Konva.Layer
   ) {
     super({} as ShapeConfig);
     this.stage = stage;
@@ -34,13 +35,14 @@ export class RectangleShape extends Shape implements Selectable {
     // this.height = height;
     // this.draggable = draggable;
 
-    this.konvaShape = this.shape();
-    console.log("CONTRUCTOR " + JSON.stringify(this.konvaShape));
+    console.log("CONTRUCTOR " + JSON.stringify(this));
+
+    selectedLayer.add(this);
     
   }
 
   drawShape(layer: Konva.Layer) {
-    layer.add(this.konvaShape);
+    layer.add(this);
   }
 
   shape() {
@@ -59,8 +61,8 @@ export class RectangleShape extends Shape implements Selectable {
       strokeWidth: 4,
       // draggable: this.draggable,
       type: ShapeType.RECTANGLE,
-      selectShape: this.selectShape,
-      unselectShape: this.unselectShape,
+      selectShape: this.selectShape.bind(this),
+      unselectShape: this.unselectShape.bind(this),
     });
 
     return rect;
@@ -71,9 +73,9 @@ export class RectangleShape extends Shape implements Selectable {
 
     //if (shape instanceof Konva.Shape) {
       //shape.stroke('yellow');
-      console.log("Select " + JSON.stringify(this) + " " + this.konvaShape);
+      console.log("Select " + JSON.stringify(this));
       
-      this.konvaShape.stroke('yellow');
+      this.stroke('yellow');
       //this.konvaShape.isSelected = true;
       this.attrs.isSelected = true;
     //}
@@ -82,7 +84,7 @@ export class RectangleShape extends Shape implements Selectable {
   unselectShape() {
     //if (shape instanceof Konva.Shape) {
       //shape.stroke('black');
-      this.konvaShape.stroke('black');
+      this.stroke('black');
       this.attrs.isSelected = false;
     //}
   }

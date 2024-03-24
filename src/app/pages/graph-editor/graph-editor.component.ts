@@ -540,19 +540,18 @@ export class GraphEditorComponent implements AfterViewInit {
       let shape;
       switch (shapeType) {
         case ShapeType.RECTANGLE:
-          let shape2 = new RectangleShape(
+          shape = new RectangleShape(
             this.stage,
             x,
             y,
             shapeSize.x,
             shapeSize.y,
-            draggable
+            draggable,
+            this.selectedLayer
           );//.shape();
-          console.log("custom rect " + JSON.stringify(shape2));
+          console.log("custom rect " + JSON.stringify(shape));
           
-          
-          shape = shape2.konvaShape;
-          console.log("shape " + shape);
+          console.log("shape " + JSON.stringify(shape));
           
           shape.on('dragstart', (e) => {
             this.placeholderConnection.opacity(0);
