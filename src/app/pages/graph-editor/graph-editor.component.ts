@@ -282,6 +282,9 @@ export class GraphEditorComponent implements AfterViewInit {
           if (clickTarget.attrs.isSelected) {
             clickTarget.attrs.unselectShape(clickTarget);
           } else {
+            console.log("ct: " + JSON.stringify(clickTarget) + " " + clickTarget.getType());
+  
+            //clickTarget.attrs.selectShape(clickTarget);
             clickTarget.attrs.selectShape(clickTarget);
           }
         }
@@ -547,7 +550,6 @@ export class GraphEditorComponent implements AfterViewInit {
             shapeSize.x,
             shapeSize.y,
             draggable,
-            this.selectedLayer
           );//.shape();
           console.log("custom rect " + JSON.stringify(shape));
           

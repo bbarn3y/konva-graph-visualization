@@ -6,6 +6,7 @@ import { Shape, ShapeConfig } from 'konva/lib/Shape';
 import { Colors } from 'src/app/_constants/colors';
 import { Selectable } from 'src/app/_interfaces/selectable';
 import { ShapeType } from 'src/app/_models/shape-type';
+
 export class RectangleShape extends Shape implements Selectable {
   stage: Konva.Stage;
   // override x: number;
@@ -24,9 +25,22 @@ export class RectangleShape extends Shape implements Selectable {
     width: number,
     height: number,
     draggable = false,
-    selectedLayer: Konva.Layer
   ) {
-    super({} as ShapeConfig);
+    super({x: 10,
+      y: 20,
+      fill: '#00D2FF',
+      width: 100,
+      height: 50,
+      stroke: 'black',
+      strokeWidth: 4,
+      sceneFunc: function (context, shape) {
+        context.beginPath();
+        // don't need to set position of rect, Konva will handle it
+        context.rect(0, 0, shape.getAttr('width'), shape.getAttr('height'));
+        // (!) Konva specific method, it is very important
+        // it will apply are required styles
+        context.fillStrokeShape(shape);
+      }} as ShapeConfig);
     this.stage = stage;
     this.setAttrs({ x, y, width, height, draggable });
     // this.x = x;
@@ -35,10 +49,7 @@ export class RectangleShape extends Shape implements Selectable {
     // this.height = height;
     // this.draggable = draggable;
 
-    console.log("CONTRUCTOR " + JSON.stringify(this));
-
-    selectedLayer.add(this);
-    
+    console.log("CONTRUCTOR " + JSON.stringify(this)); 
   }
 
   drawShape(layer: Konva.Layer) {
