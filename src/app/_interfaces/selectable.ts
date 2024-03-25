@@ -1,4 +1,5 @@
 import Konva from "konva";
+import { Shape } from "konva/lib/Shape";
 
 export class Selectable {
 
@@ -7,4 +8,12 @@ export class Selectable {
   selectShape() {}
 
   unselectShape() {}
+}
+
+export abstract class SelectableShape extends Shape {
+  isSelected: boolean = false;
+
+  abstract selectShape(): void;
+
+  abstract unselectShape(): void;
 }

@@ -30,6 +30,7 @@ import { KonvaEventObject } from 'konva/lib/Node';
 import { PlaceholderShapes } from 'src/app/_constants/placeholderShapes';
 import { RGBA } from 'konva/lib/filters/RGBA';
 import { defaultShapes } from 'src/app/_constants/defaultShapes';
+import { Selectable, SelectableShape } from 'src/app/_interfaces/selectable';
 
 @Component({
   selector: 'app-graph-editor',
@@ -212,6 +213,8 @@ export class GraphEditorComponent implements AfterViewInit {
       const pointerPosition = this.stage?.getRelativePointerPosition();
       if (!pointerPosition) return;
       const clickTarget = event.target;
+      console.log("type: ", clickTarget);
+      
       const snapPos = this.calculateGridSnapPosition(pointerPosition);
 
       //Draw arrow to shape
@@ -300,7 +303,11 @@ export class GraphEditorComponent implements AfterViewInit {
             }
           });
 
-          clickTarget.attrs.isSelected ? clickTarget.attrs.unselectShape(clickTarget) : clickTarget.attrs.selectShape(clickTarget); 
+          if (clickTarget instanceof SelectableShape){
+            console.log("in select");
+            
+            clickTarget.isSelected ? clickTarget.unselectShape() : clickTarget.selectShape(); 
+          }
         }
         
        /*
