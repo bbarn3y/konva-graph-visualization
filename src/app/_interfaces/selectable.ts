@@ -1,13 +1,13 @@
 import Konva from "konva";
 import { Shape } from "konva/lib/Shape";
 
-export class Selectable {
+export interface Selectable {
 
-  isSelected: boolean = false;
+  isSelected: boolean;
 
-  selectShape() {}
+  selectShape(): void;
 
-  unselectShape() {}
+  unselectShape(): void;
 }
 
 export abstract class SelectableShape extends Shape {

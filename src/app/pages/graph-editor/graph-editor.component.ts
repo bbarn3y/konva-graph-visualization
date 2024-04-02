@@ -266,46 +266,43 @@ export class GraphEditorComponent implements AfterViewInit {
 
       // Handling shape selection and unselection
       if (clickTarget === this.stage) {
-        const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
+        const selectedShapes = this.stage?.find('Shape').filter((x) => this.isSelectable(x) && x.isSelected);
 
         if (!selectedShapes) return;
 
         selectedShapes.forEach((actShape) => {
-          if (actShape instanceof Konva.Shape) {
-            actShape.attrs.isSelected = false;
-            actShape.stroke('black');
+          if (this.isSelectable(actShape)) {
+            actShape.unselectShape();
           }
         });
-      } else if (clickTarget instanceof Konva.Shape &&
+      } else if (this.isSelectable(clickTarget) &&
         event.evt.button !== 2 &&
         !this.selectedShape) {
         
         
         if (event.evt.ctrlKey) {
-          if (clickTarget.attrs.isSelected) {
-            clickTarget.attrs.unselectShape(clickTarget);
+          if (clickTarget.isSelected) {
+            clickTarget.unselectShape();
           } else {
             console.log("ct: " + JSON.stringify(clickTarget) + " " + clickTarget.getType());
   
             //clickTarget.attrs.selectShape(clickTarget);
-            clickTarget.attrs.selectShape(clickTarget);
+            clickTarget.selectShape();
           }
         }
-        else if (clickTarget instanceof Konva.Shape) {
-          const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
+        else if (this.isSelectable(clickTarget)) {
+          const selectedShapes = this.stage?.find('Shape').filter((x) => this.isSelectable(x) && x.isSelected);
           console.log(selectedShapes);
           
           if (!selectedShapes) return;
 
           selectedShapes.forEach((actShape) => {
-            if (actShape instanceof Konva.Shape) {
-              actShape.attrs.unselectShape(actShape);
+            if (this.isSelectable(actShape)) {
+              actShape.unselectShape();
             }
           });
 
-          if (clickTarget instanceof SelectableShape){
-            console.log("in select");
-            
+          if (this.isSelectable(clickTarget)){
             clickTarget.isSelected ? clickTarget.unselectShape() : clickTarget.selectShape(); 
           }
         }
@@ -523,8 +520,11 @@ export class GraphEditorComponent implements AfterViewInit {
         const selectedShapes = this.getAllShapesInSelection();
 
         selectedShapes.forEach((actShape) => {
-          actShape.attrs.isSelected = true;
-          actShape.stroke('yellow');
+          if (this.isSelectable(actShape)){
+            console.log("should be selectable: ", actShape);
+      
+            //actShape.unselectShape();
+          }
         });
 
         this.selectRectangle.destroy();
@@ -806,10 +806,8 @@ export class GraphEditorComponent implements AfterViewInit {
     if (!allShapes) return;
 
     allShapes.forEach((actShape) => {
-      if (actShape.attrs.isSelected === undefined) return;
-      if (actShape instanceof Konva.Shape && actShape.attrs.isSelected) {
-        actShape.attrs.isSelected = false;
-        actShape.stroke('black');
+      if (this.isSelectable(actShape) && actShape.isSelected) {
+        actShape.unselectShape();
       }
     });
   }
@@ -823,7 +821,7 @@ export class GraphEditorComponent implements AfterViewInit {
       return selectedShapes;
     }
 
-    const allShapes = this.stage?.find('Shape');
+    const allShapes = this.stage?.find((x: any) => x instanceof RectangleShape);
     if (!allShapes) {
       return selectedShapes;
     }
@@ -1400,5 +1398,9 @@ export class GraphEditorComponent implements AfterViewInit {
         return middlePoint;
       }
     }
+  };
+
+  isSelectable(object: any): object is Selectable {
+    return true;
   };
 }

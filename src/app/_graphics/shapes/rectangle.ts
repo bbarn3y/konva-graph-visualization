@@ -7,7 +7,7 @@ import { Colors } from 'src/app/_constants/colors';
 import { Selectable, SelectableShape } from 'src/app/_interfaces/selectable';
 import { ShapeType } from 'src/app/_models/shape-type';
 
-export class RectangleShape extends SelectableShape {
+export class RectangleShape extends Konva.Shape implements Selectable {
   stage: Konva.Stage;
   // override x: number;
   // override y: number;
@@ -16,7 +16,7 @@ export class RectangleShape extends SelectableShape {
   // draggable: boolean;
   // id?: number;
   groupId: string = '';
-  //isSelected: boolean = false;
+  isSelected: boolean = false;
 
   constructor(
     stage: Konva.Stage,
