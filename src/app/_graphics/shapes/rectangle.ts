@@ -2,6 +2,7 @@
  * <<licensetext>>
  */
 import Konva from 'konva';
+import { Group } from 'konva/lib/Group';
 import { Shape, ShapeConfig } from 'konva/lib/Shape';
 import { Colors } from 'src/app/_constants/colors';
 import { Selectable, SelectableShape } from 'src/app/_interfaces/selectable';
@@ -9,14 +10,9 @@ import { ShapeType } from 'src/app/_models/shape-type';
 
 export class RectangleShape extends Konva.Shape implements Selectable {
   stage: Konva.Stage;
-  // override x: number;
-  // override y: number;
-  // width: number;
-  // height: number;
-  // draggable: boolean;
-  // id?: number;
   groupId: string = '';
   isSelected: boolean = false;
+  group?: Konva.Group;
 
   constructor(
     stage: Konva.Stage,
@@ -35,21 +31,11 @@ export class RectangleShape extends Konva.Shape implements Selectable {
       strokeWidth: 4,
       sceneFunc: function (context, shape) {
         context.beginPath();
-        // don't need to set position of rect, Konva will handle it
         context.rect(0, 0, shape.getAttr('width'), shape.getAttr('height'));
-        // (!) Konva specific method, it is very important
-        // it will apply are required styles
         context.fillStrokeShape(shape);
       }} as ShapeConfig);
     this.stage = stage;
     this.setAttrs({ x, y, width, height, draggable });
-    // this.x = x;
-    // this.y = y;
-    // this.width = width;
-    // this.height = height;
-    // this.draggable = draggable;
-
-    console.log("CONTRUCTOR " + JSON.stringify(this)); 
   }
 
   drawShape(layer: Konva.Layer) {
@@ -80,23 +66,12 @@ export class RectangleShape extends Konva.Shape implements Selectable {
   // }
 
   selectShape() {
-    //console.log('asd ' + shape);
-
-    //if (shape instanceof Konva.Shape) {
-      //shape.stroke('yellow');
-      console.log("Select " + JSON.stringify(this));
-      
-      this.stroke('yellow');
-      //this.konvaShape.isSelected = true;
-      this.isSelected = true;
-    //}
+    this.stroke('yellow');
+    this.isSelected = true;
   }
 
   unselectShape() {
-    //if (shape instanceof Konva.Shape) {
-      //shape.stroke('black');
-      this.stroke('black');
-      this.isSelected = false;
-    //}
+    this.stroke('black');
+    this.isSelected = false;
   }
 }

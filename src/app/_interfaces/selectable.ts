@@ -4,9 +4,9 @@ import { Shape } from "konva/lib/Shape";
 export interface Selectable {
 
   isSelected: boolean;
+  group?: Konva.Group;
 
   selectShape(): void;
-
   unselectShape(): void;
 }
 
