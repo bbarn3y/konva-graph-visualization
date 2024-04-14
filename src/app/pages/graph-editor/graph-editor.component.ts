@@ -212,7 +212,7 @@ export class GraphEditorComponent implements AfterViewInit {
       }
       const pointerPosition = this.stage?.getRelativePointerPosition();
       if (!pointerPosition) return;
-      const clickTarget = event.target;
+      const clickTarget = event.target;      
       
       const snapPos = this.calculateGridSnapPosition(pointerPosition);
 
@@ -380,6 +380,8 @@ export class GraphEditorComponent implements AfterViewInit {
       //Modify the zoomLevel based on the stage scale.
       this.adjustZoomLevel(newScale);
       this.stage.setPointersPositions(event);
+      //console.log(this.zoomLevel);
+      
     });
 
     this.stage.on('contextmenu', (e) => {
@@ -676,6 +678,67 @@ export class GraphEditorComponent implements AfterViewInit {
       this.gridLayer.add(gridLine.clone().points([0, -y, startY - endY, -y]));
       this.gridLayer.batchDraw();
     }
+    /*
+    for (let x = startX; x < endX; x += weightedFieldSize) {
+      for (let y = startY; y < endY; y += weightedFieldSize) {
+        //var shapes = this.stage.find('RectangleShape');
+        console.log("bruh");
+        
+        
+        // const shapeBoundingBox = shape.getClientRect();
+
+        // // Check if all corners of the shape are within the selection rectangle
+        // const isShapeFullyWithinSelection =
+        //   this.isPointWithinSelection2(shapeBoundingBox.x, shapeBoundingBox.y, x, y, weightedFieldSize, weightedFieldSize) &&
+        //   this.isPointWithinSelection2(
+        //     shapeBoundingBox.x + shapeBoundingBox.width,
+        //     shapeBoundingBox.y, x, y, weightedFieldSize, weightedFieldSize
+        //   ) &&
+        //   this.isPointWithinSelection2(
+        //     shapeBoundingBox.x + shapeBoundingBox.width,
+        //     shapeBoundingBox.y + shapeBoundingBox.height, x, y, weightedFieldSize, weightedFieldSize
+        //   ) &&
+        //   this.isPointWithinSelection2(
+        //     shapeBoundingBox.x,
+        //     shapeBoundingBox.y + shapeBoundingBox.height, x, y, weightedFieldSize, weightedFieldSize
+        //   );
+
+        // if (isShapeFullyWithinSelection) {
+        //   selectedShapes.push(shape);
+        // }
+        
+      }
+    }
+    */
+
+    var gridCounts: number[][] = [];
+    const numX = Math.floor((endX - startX) / weightedFieldSize);
+    const numY = Math.floor((endY - startY) / weightedFieldSize);
+
+    gridCounts = Array.from({ length: numX }, () => Array(numY).fill(0));
+
+    var shapes = this.stage?.find('Shape').filter((x) => this.isSelectable(x));
+
+    shapes.forEach(shape => {
+      const gridX = Math.floor((shape.x() - startX) / weightedFieldSize);
+      const gridY = Math.floor((shape.y() - startY) / weightedFieldSize);
+
+      if (gridX >= 0 && gridX < numX && gridY >= 0 && gridY < numY) {
+        gridCounts[gridX][gridY]++;
+      }
+    });
+  
+
+    for (let i = 0; i < gridCounts.length; i++) {
+      for (let j = 0; j < gridCounts[i].length; j++) {
+        const count = gridCounts[i][j];
+        if (count > 0) {
+          console.log(`Count at (${i}, ${j}): ${count}`);
+        }
+      }
+    }
+    //console.log("startx:" + startX + " endx:" + endX + " starty:" + startY + " endy:" + endY + " fieldsize:" + weightedFieldSize);
+    
   }
 
   //Adjust the zoomLevel based on current stage scale or the given value.
@@ -846,6 +909,27 @@ export class GraphEditorComponent implements AfterViewInit {
     const y2 = Math.max(
       selectionRect.y(),
       selectionRect.y() + selectionRect.height()
+    );
+
+    return x >= x1 && x <= x2 && y >= y1 && y <= y2;
+  }
+
+  private isPointWithinSelection2(x: number, y: number, rX: number, rY: number, Rwidth: number, Rheight: number): boolean {
+    const x1 = Math.min(
+      rX,
+      rX + Rwidth
+    );
+    const x2 = Math.max(
+      rX,
+      rX + Rwidth
+    );
+    const y1 = Math.min(
+      rY,
+      rY + Rheight
+    );
+    const y2 = Math.max(
+      rY,
+      rY + Rheight
     );
 
     return x >= x1 && x <= x2 && y >= y1 && y <= y2;
