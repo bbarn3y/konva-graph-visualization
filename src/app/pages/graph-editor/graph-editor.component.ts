@@ -717,6 +717,9 @@ export class GraphEditorComponent implements AfterViewInit {
 
     gridCounts = Array.from({ length: numX }, () => Array(numY).fill(0));
 
+    //console.log("x: " + numX + " y:" + numY);
+    
+
     var shapes = this.stage?.find('Shape').filter((x) => this.isSelectable(x));
 
     shapes.forEach(shape => {
@@ -726,14 +729,29 @@ export class GraphEditorComponent implements AfterViewInit {
       if (gridX >= 0 && gridX < numX && gridY >= 0 && gridY < numY) {
         gridCounts[gridX][gridY]++;
       }
+    
+      //console.log(gridX + " " + isTopLeftQuarter);
+      var snappos = this.calculateGridSnapPosition(shape.position());
+      console.log(snappos, shape.position(), );
+      
+      if (!(snappos.x == shape.x() && snappos.y == shape.y())){
+        shape.visible(false);
+      }else{
+        shape.visible(true);
+      }
+
     });
-  
 
     for (let i = 0; i < gridCounts.length; i++) {
       for (let j = 0; j < gridCounts[i].length; j++) {
         const count = gridCounts[i][j];
         if (count > 0) {
-          console.log(`Count at (${i}, ${j}): ${count}`);
+
+          const pos = {x: startX + i * weightedFieldSize,y: startY + j * weightedFieldSize};
+
+          var snapPos = this.calculateGridSnapPosition(pos);
+          this.drawShape(ShapeType.RECTANGLE, snapPos.x, snapPos.y, true);
+          //console.log(`Count at (${i}, ${j}): ${count}`);
         }
       }
     }
