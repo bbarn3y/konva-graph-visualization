@@ -31,6 +31,7 @@ import { PlaceholderShapes } from 'src/app/_constants/placeholderShapes';
 import { RGBA } from 'konva/lib/filters/RGBA';
 import { defaultShapes } from 'src/app/_constants/defaultShapes';
 import { Selectable, SelectableShape } from 'src/app/_interfaces/selectable';
+import { GroupRectangleShape } from 'src/app/_graphics/shapes/groupRectangle';
 
 @Component({
   selector: 'app-graph-editor',
@@ -515,7 +516,8 @@ export class GraphEditorComponent implements AfterViewInit {
     shapeType: ShapeType,
     x: number,
     y: number,
-    draggable: boolean = false
+    draggable: boolean = false,
+    count: number = 0
   ) {
     const shapeSize = this.calculateShapeSize();
     if (this.stage && this.selectedLayer) {
@@ -584,6 +586,19 @@ export class GraphEditorComponent implements AfterViewInit {
             this.placeholderConnection.opacity(0);
           });
           break;
+
+          case ShapeType.GROUPRECTANGLE:
+            shape = new GroupRectangleShape(
+              this.stage,
+              x,
+              y,
+              shapeSize.x,
+              shapeSize.y,
+              draggable,
+              count
+            );
+            break;
+
         default:
           break;
       }
@@ -593,13 +608,22 @@ export class GraphEditorComponent implements AfterViewInit {
       }
 
       shape.attrs.id = GraphEditorComponent.IdCount++;
-      this.selectedLayer.add(shape);
+      //this.selectedLayer.add(shape);
+      //shape.drawShape(this.selectedLayer);
+
+      if (shape instanceof RectangleShape) {
+        shape.drawShape(this.selectedLayer);
+      }
+      else if (shape instanceof GroupRectangleShape) {
+        shape.drawShape(this.selectedLayer, shapeSize.x, shapeSize.y);
+      }
 
       return shape;
     } else {
       return;
     }
   }
+
   //Calculate the topleft position of given grid with a padding
   calculateGridSnapPosition(vector: Vector2d): Vector2d {
     const padding = 10;
@@ -678,38 +702,61 @@ export class GraphEditorComponent implements AfterViewInit {
       this.gridLayer.add(gridLine.clone().points([0, -y, startY - endY, -y]));
       this.gridLayer.batchDraw();
     }
-    /*
-    for (let x = startX; x < endX; x += weightedFieldSize) {
-      for (let y = startY; y < endY; y += weightedFieldSize) {
-        //var shapes = this.stage.find('RectangleShape');
-        console.log("bruh");
-        
-        
-        // const shapeBoundingBox = shape.getClientRect();
+  }
 
-        // // Check if all corners of the shape are within the selection rectangle
-        // const isShapeFullyWithinSelection =
-        //   this.isPointWithinSelection2(shapeBoundingBox.x, shapeBoundingBox.y, x, y, weightedFieldSize, weightedFieldSize) &&
-        //   this.isPointWithinSelection2(
-        //     shapeBoundingBox.x + shapeBoundingBox.width,
-        //     shapeBoundingBox.y, x, y, weightedFieldSize, weightedFieldSize
-        //   ) &&
-        //   this.isPointWithinSelection2(
-        //     shapeBoundingBox.x + shapeBoundingBox.width,
-        //     shapeBoundingBox.y + shapeBoundingBox.height, x, y, weightedFieldSize, weightedFieldSize
-        //   ) &&
-        //   this.isPointWithinSelection2(
-        //     shapeBoundingBox.x,
-        //     shapeBoundingBox.y + shapeBoundingBox.height, x, y, weightedFieldSize, weightedFieldSize
-        //   );
-
-        // if (isShapeFullyWithinSelection) {
-        //   selectedShapes.push(shape);
-        // }
-        
-      }
+  //Adjust the zoomLevel based on current stage scale or the given value.
+  adjustZoomLevel(scale?: number) {
+    if (!scale) scale = this.stage.scaleX();
+    //@TODO: Add to configuration
+    const actZoomLevel = this.zoomLevel;
+    if (scale >= 1.3) {
+      this.zoomLevel = 1;
+    } else if (scale > 0.7) {
+      this.zoomLevel = 2;
+    } else {
+      this.zoomLevel = 4;
     }
-    */
+
+    if (this.zoomLevel != actZoomLevel) {
+      this.updateZoomGorup();
+    }
+
+    this.updateGrid();
+  }
+
+  updateZoomGorup() {
+    if (!this.gridLayer) return;
+    if (!this.selectedLayer) return;
+    console.log("asd");
+
+    var GroupShapes = this.stage?.find('Shape').filter(x => x instanceof GroupRectangleShape);
+    console.log(GroupShapes.length);
+
+    GroupShapes.forEach(shape => {
+      shape.destroy();
+    });
+    
+    const weightedFieldSize = this.fieldSize * Math.max(this.zoomLevel, 1);
+    const stageWidth = 2000 * Math.max(this.zoomLevel, 1);
+    const stageHeight = 2000 * Math.max(this.zoomLevel, 1);
+    //Starting and last x axis coord for loop
+    //Draw lines based of the current stage position, the stage width (viewport) and the gridSize based on zoomLevel
+    const startX =
+      Math.floor((-this.stage.x() - stageWidth) / weightedFieldSize) *
+      weightedFieldSize;
+    const endX =
+      Math.floor((-this.stage.x() + stageWidth) / weightedFieldSize) *
+      weightedFieldSize *
+      this.zoomLevel;
+
+    //Starting and last y axis coord for loop
+    const startY =
+      Math.floor((-this.stage.y() - stageHeight) / weightedFieldSize) *
+      weightedFieldSize;
+    const endY =
+      Math.floor((-this.stage.y() + stageHeight) / weightedFieldSize) *
+      weightedFieldSize *
+      this.zoomLevel;
 
     var gridCounts: number[][] = [];
     const numX = Math.floor((endX - startX) / weightedFieldSize);
@@ -719,7 +766,6 @@ export class GraphEditorComponent implements AfterViewInit {
 
     //console.log("x: " + numX + " y:" + numY);
     
-
     var shapes = this.stage?.find('Shape').filter((x) => this.isSelectable(x));
 
     shapes.forEach(shape => {
@@ -732,45 +778,30 @@ export class GraphEditorComponent implements AfterViewInit {
     
       //console.log(gridX + " " + isTopLeftQuarter);
       var snappos = this.calculateGridSnapPosition(shape.position());
-      console.log(snappos, shape.position(), );
+      //console.log(snappos, shape.position(), );
       
       if (!(snappos.x == shape.x() && snappos.y == shape.y())){
         shape.visible(false);
       }else{
         shape.visible(true);
       }
-
     });
 
     for (let i = 0; i < gridCounts.length; i++) {
       for (let j = 0; j < gridCounts[i].length; j++) {
         const count = gridCounts[i][j];
-        if (count > 0) {
+        if (count > 1) {
 
           const pos = {x: startX + i * weightedFieldSize,y: startY + j * weightedFieldSize};
 
           var snapPos = this.calculateGridSnapPosition(pos);
-          this.drawShape(ShapeType.RECTANGLE, snapPos.x, snapPos.y, true);
+          this.drawShape(ShapeType.GROUPRECTANGLE, snapPos.x, snapPos.y, true, count);
           //console.log(`Count at (${i}, ${j}): ${count}`);
         }
       }
     }
     //console.log("startx:" + startX + " endx:" + endX + " starty:" + startY + " endy:" + endY + " fieldsize:" + weightedFieldSize);
     
-  }
-
-  //Adjust the zoomLevel based on current stage scale or the given value.
-  adjustZoomLevel(scale?: number) {
-    if (!scale) scale = this.stage.scaleX();
-    //@TODO: Add to configuration
-    if (scale >= 1.3) {
-      this.zoomLevel = 1;
-    } else if (scale > 0.7) {
-      this.zoomLevel = 2;
-    } else {
-      this.zoomLevel = 4;
-    }
-    this.updateGrid();
   }
 
   //Reposition stage, but the coords are clamped and based on zoom level.
