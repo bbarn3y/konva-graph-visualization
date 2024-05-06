@@ -26,7 +26,7 @@ import {
   ObjectSnappingEdges,
   SnapDirection,
 } from 'src/app/_interfaces/shapeTypes';
-import { KonvaEventObject } from 'konva/lib/Node';
+import { KonvaEventObject, Node, NodeConfig } from 'konva/lib/Node';
 import { PlaceholderShapes } from 'src/app/_constants/placeholderShapes';
 import { RGBA } from 'konva/lib/filters/RGBA';
 import { defaultShapes } from 'src/app/_constants/defaultShapes';
@@ -517,7 +517,8 @@ export class GraphEditorComponent implements AfterViewInit {
     x: number,
     y: number,
     draggable: boolean = false,
-    count: number = 0
+    count: number = 0,
+    subShapes: Konva.Shape[] = []
   ) {
     const shapeSize = this.calculateShapeSize();
     if (this.stage && this.selectedLayer) {
@@ -595,7 +596,8 @@ export class GraphEditorComponent implements AfterViewInit {
               shapeSize.x,
               shapeSize.y,
               draggable,
-              count
+              count,
+              subShapes
             );
             break;
 
@@ -767,6 +769,7 @@ export class GraphEditorComponent implements AfterViewInit {
     //console.log("x: " + numX + " y:" + numY);
     
     var shapes = this.stage?.find('Shape').filter((x) => this.isSelectable(x));
+    var subShapes: Konva.Shape[] = [];
 
     shapes.forEach(shape => {
       const gridX = Math.floor((shape.x() - startX) / weightedFieldSize);
@@ -774,6 +777,7 @@ export class GraphEditorComponent implements AfterViewInit {
 
       if (gridX >= 0 && gridX < numX && gridY >= 0 && gridY < numY) {
         gridCounts[gridX][gridY]++;
+        subShapes.push(shape as Konva.Shape);
       }
     
       //console.log(gridX + " " + isTopLeftQuarter);
@@ -795,7 +799,7 @@ export class GraphEditorComponent implements AfterViewInit {
           const pos = {x: startX + i * weightedFieldSize,y: startY + j * weightedFieldSize};
 
           var snapPos = this.calculateGridSnapPosition(pos);
-          this.drawShape(ShapeType.GROUPRECTANGLE, snapPos.x, snapPos.y, true, count);
+          this.drawShape(ShapeType.GROUPRECTANGLE, snapPos.x, snapPos.y, true, count, subShapes);
           //console.log(`Count at (${i}, ${j}): ${count}`);
         }
       }
@@ -1090,25 +1094,74 @@ export class GraphEditorComponent implements AfterViewInit {
   public deleteShape(): void {
     if (this.clickedShape === undefined) return;
 
-    const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === this.clickedShape?.attrs.group);
+    console.log(this.clickedShape);
+    
+    if (this.clickedShape instanceof GroupRectangleShape) {
 
-    if (sameGroupShapes.length < 3) {
-      const groupToDelete = this.clickedShape.attrs.group;
+      // delete subshapes
 
-      sameGroupShapes.forEach((actShape) => {
-        actShape.attrs.group = undefined;
+      this.clickedShape.subShapes.forEach(subShape => {
+        const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === subShape?.attrs.group);
+
+        if (sameGroupShapes.length < 3) {
+          const groupToDelete = subShape.attrs.group;
+
+          sameGroupShapes.forEach((actShape) => {
+            actShape.attrs.group = undefined;
+          });
+
+          const index = this.groups.indexOf(groupToDelete);
+          if (index !== -1) {
+            this.groups.splice(index, 1);
+          }
+        }
+
+        subShape.destroy();
+        this.isShowContextMenu = false;
       });
 
-      //this.groups = this.groups.filter(group => group !== groupToDelete);
-      const index = this.groups.indexOf(groupToDelete);
-      if (index !== -1) {
-        this.groups.splice(index, 1);
-      }
-    }
+      // delete groupshape
+      const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === this.clickedShape?.attrs.group);
 
-    this.clickedShape.destroy();
-    this.isShowContextMenu = false;
-    this.clickedShape = undefined;
+      if (sameGroupShapes.length < 3) {
+        const groupToDelete = this.clickedShape.attrs.group;
+
+        sameGroupShapes.forEach((actShape) => {
+          actShape.attrs.group = undefined;
+        });
+
+        const index = this.groups.indexOf(groupToDelete);
+        if (index !== -1) {
+          this.groups.splice(index, 1);
+        }
+      }
+
+      this.clickedShape.destroy();
+      this.isShowContextMenu = false;
+      this.clickedShape = undefined;
+    }
+    else {
+      const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === this.clickedShape?.attrs.group);
+
+      if (sameGroupShapes.length < 3) {
+        const groupToDelete = this.clickedShape.attrs.group;
+
+        sameGroupShapes.forEach((actShape) => {
+          actShape.attrs.group = undefined;
+        });
+
+        //this.groups = this.groups.filter(group => group !== groupToDelete);
+        const index = this.groups.indexOf(groupToDelete);
+        if (index !== -1) {
+          this.groups.splice(index, 1);
+        }
+      }
+
+      this.clickedShape.destroy();
+      this.isShowContextMenu = false;
+      this.clickedShape = undefined;
+    }
+    
 
     const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
 
@@ -1121,27 +1174,7 @@ export class GraphEditorComponent implements AfterViewInit {
       actShape.attrs.isSelected = false;
     });
   }
-  /*
-  showContextMenu(event: MouseEvent): void {
-    // Get the context menu element
-    const contextMenu = document.getElementById('contextMenu');
 
-    if (contextMenu) {
-      // Set position based on the mouse pointer
-      contextMenu.style.display = 'block';
-      contextMenu.style.top = event.clientY + 'px';
-      contextMenu.style.left = event.clientX + 'px';
-
-      // Handle context menu actions
-      document.getElementById('delete_button')?.addEventListener('click', () => {
-        this.currentShape.destroy();
-        contextMenu.style.display = 'none';
-      });
-
-      // Add other context menu options and their respective handlers as needed
-    }
-  }
-  */
   //Arrow related
   updateLinesById(id: string): void {
     if (!this.linesById[id] || !this.breakpointsById[id]) return;

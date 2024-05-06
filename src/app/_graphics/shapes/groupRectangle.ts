@@ -5,13 +5,14 @@ import Konva from 'konva';
 import { Shape, ShapeConfig } from 'konva/lib/Shape';
 import { Selectable, SelectableShape } from 'src/app/_interfaces/selectable';
 
-export class GroupRectangleShape extends Konva.Shape {
+export class GroupRectangleShape extends Konva.Shape implements Selectable {
   stage: Konva.Stage;
   groupId: string = '';
   isSelected: boolean = false;
   group?: Konva.Group;
   count: number;
   numberText: Konva.Text | null = null;
+  subShapes: Konva.Shape[] = [];
 
   constructor(
     stage: Konva.Stage,
@@ -20,8 +21,8 @@ export class GroupRectangleShape extends Konva.Shape {
     width: number,
     height: number,
     draggable = false,
-    count: number
-    
+    count: number,
+    subShapes: Konva.Shape[]
   ) {
     super({x: 10,
       y: 20,
@@ -38,6 +39,9 @@ export class GroupRectangleShape extends Konva.Shape {
     this.stage = stage;
     this.setAttrs({ x, y, width, height, draggable });
     this.count = count;
+    this.subShapes = subShapes;
+    console.log(subShapes);
+    
   }
 
   drawShape(layer: Konva.Layer, shapeSizeX: number, shapeSizeY: number) {
@@ -49,6 +53,7 @@ export class GroupRectangleShape extends Konva.Shape {
         text: this.count.toString(), 
         fontSize: 20,
         fill: 'black',
+        listening: false
       });
       layer.add(this.numberText);
 
