@@ -760,24 +760,28 @@ export class GraphEditorComponent implements AfterViewInit {
       weightedFieldSize *
       this.zoomLevel;
 
-    var gridCounts: number[][] = [];
+    var gridCounts: (Shape[])[][] = [];
     const numX = Math.floor((endX - startX) / weightedFieldSize);
     const numY = Math.floor((endY - startY) / weightedFieldSize);
 
-    gridCounts = Array.from({ length: numX }, () => Array(numY).fill(0));
+    //gridCounts = Array.from({ length: numX }, () => Array(numY).fill([]));
+    gridCounts = Array.from({ length: numX }, () =>
+                 Array.from({ length: numY }, () => []));
 
     //console.log("x: " + numX + " y:" + numY);
     
     var shapes = this.stage?.find('Shape').filter((x) => this.isSelectable(x));
-    var subShapes: Konva.Shape[] = [];
+    //var subShapes: Konva.Shape[] = [];
 
     shapes.forEach(shape => {
       const gridX = Math.floor((shape.x() - startX) / weightedFieldSize);
       const gridY = Math.floor((shape.y() - startY) / weightedFieldSize);
 
       if (gridX >= 0 && gridX < numX && gridY >= 0 && gridY < numY) {
-        gridCounts[gridX][gridY]++;
-        subShapes.push(shape as Konva.Shape);
+        gridCounts[gridX][gridY].push(shape as Konva.Shape);
+        console.log("griddata: " + gridX + " " + gridY + " nums " + numX + " " + numY);
+        
+        //subShapes.push(shape as Konva.Shape);
       }
     
       //console.log(gridX + " " + isTopLeftQuarter);
@@ -793,13 +797,15 @@ export class GraphEditorComponent implements AfterViewInit {
 
     for (let i = 0; i < gridCounts.length; i++) {
       for (let j = 0; j < gridCounts[i].length; j++) {
-        const count = gridCounts[i][j];
-        if (count > 1) {
-
+        const count = gridCounts[i][j].length;
+        if (count > 0) {
+          console.log(i + " " + j);
+          
           const pos = {x: startX + i * weightedFieldSize,y: startY + j * weightedFieldSize};
 
           var snapPos = this.calculateGridSnapPosition(pos);
-          this.drawShape(ShapeType.GROUPRECTANGLE, snapPos.x, snapPos.y, true, count, subShapes);
+          if (!gridCounts[i][j].some(shape => shape.x() === snapPos.x && shape.y() === snapPos.y))
+            this.drawShape(ShapeType.GROUPRECTANGLE, snapPos.x, snapPos.y, true, count, gridCounts[i][j]);
           //console.log(`Count at (${i}, ${j}): ${count}`);
         }
       }

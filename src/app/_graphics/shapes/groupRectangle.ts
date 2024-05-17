@@ -57,7 +57,7 @@ export class GroupRectangleShape extends Konva.Shape implements Selectable {
       });
       layer.add(this.numberText);
 
-      console.log("numtext", this.numberText);
+      //console.log("numtext", this.numberText);
   }
 
   override destroy(): this {

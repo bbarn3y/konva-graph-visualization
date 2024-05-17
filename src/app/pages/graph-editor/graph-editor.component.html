@@ -29,14 +29,14 @@
   <div #contextMenu id="contextMenu" class="menu">
     <ng-container *ngIf="isShowContextMenu">
       <button
-        *ngIf="!onlySameGroupElements"
+        *ngIf="!onlySameGroupElements && zoomLevel === 1"
         id="group_button"
         (click)="groupSelectedShapes()"
       >
         Group
       </button>
       <button
-        *ngIf="isGrouped"
+        *ngIf="isGrouped && zoomLevel === 1"
         id="ungroup_button"
         (click)="ungroupSelectedShapes()"
       >
