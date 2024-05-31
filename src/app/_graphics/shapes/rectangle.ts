@@ -13,6 +13,7 @@ export class RectangleShape extends Konva.Shape implements Selectable {
   groupId: string = '';
   isSelected: boolean = false;
   group?: Konva.Group;
+  zoomLevel: number;
 
   constructor(
     stage: Konva.Stage,
@@ -21,6 +22,7 @@ export class RectangleShape extends Konva.Shape implements Selectable {
     width: number,
     height: number,
     draggable = false,
+    zoomLevel: number,
   ) {
     super({x: 10,
       y: 20,
@@ -36,6 +38,7 @@ export class RectangleShape extends Konva.Shape implements Selectable {
       }} as ShapeConfig);
     this.stage = stage;
     this.setAttrs({ x, y, width, height, draggable });
+    this.zoomLevel = zoomLevel;
   }
 
   drawShape(layer: Konva.Layer) {

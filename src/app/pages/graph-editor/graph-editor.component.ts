@@ -532,6 +532,7 @@ export class GraphEditorComponent implements AfterViewInit {
             shapeSize.x,
             shapeSize.y,
             draggable,
+            this.zoomLevel,
           );
 
           shape.on('dragstart', (e) => {
@@ -800,12 +801,14 @@ export class GraphEditorComponent implements AfterViewInit {
         const count = gridCounts[i][j].length;
         if (count > 0) {
           console.log(i + " " + j);
-          
+
           const pos = {x: startX + i * weightedFieldSize,y: startY + j * weightedFieldSize};
 
           var snapPos = this.calculateGridSnapPosition(pos);
-          if (!gridCounts[i][j].some(shape => shape.x() === snapPos.x && shape.y() === snapPos.y))
-            this.drawShape(ShapeType.GROUPRECTANGLE, snapPos.x, snapPos.y, true, count, gridCounts[i][j]);
+          // || gridCounts[i][j].some(shape => (shape as RectangleShape).zoomLevel === this.zoomLevel && shape instanceof RectangleShape && shape.x() === snapPos.x && shape.y() === snapPos.y && prevZoomLevel < this.zoomLevel)
+          //if (!gridCounts[i][j].some(shape => shape.x() === snapPos.x && shape.y() === snapPos.y))
+          if (gridCounts[i][j].some(shape => (shape as RectangleShape).zoomLevel < this.zoomLevel && shape instanceof RectangleShape))
+              this.drawShape(ShapeType.GROUPRECTANGLE, snapPos.x, snapPos.y, true, count, gridCounts[i][j]);
           //console.log(`Count at (${i}, ${j}): ${count}`);
         }
       }
