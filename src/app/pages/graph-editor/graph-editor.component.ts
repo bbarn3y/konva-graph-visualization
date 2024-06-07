@@ -611,8 +611,6 @@ export class GraphEditorComponent implements AfterViewInit {
       }
 
       shape.attrs.id = GraphEditorComponent.IdCount++;
-      //this.selectedLayer.add(shape);
-      //shape.drawShape(this.selectedLayer);
 
       if (shape instanceof RectangleShape) {
         shape.drawShape(this.selectedLayer);
@@ -727,13 +725,12 @@ export class GraphEditorComponent implements AfterViewInit {
     this.updateGrid();
   }
 
+  //Update the group of shapes based on the zoom level
   updateZoomGorup() {
-    if (!this.gridLayer) return;
-    if (!this.selectedLayer) return;
-    console.log("asd");
+    if (!this.gridLayer || !this.selectedLayer) return;
 
+    //Remove all previous groupShapes
     var GroupShapes = this.stage?.find('Shape').filter(x => x instanceof GroupRectangleShape);
-    console.log(GroupShapes.length);
 
     GroupShapes.forEach(shape => {
       shape.destroy();
@@ -742,8 +739,8 @@ export class GraphEditorComponent implements AfterViewInit {
     const weightedFieldSize = this.fieldSize * Math.max(this.zoomLevel, 1);
     const stageWidth = 2000 * Math.max(this.zoomLevel, 1);
     const stageHeight = 2000 * Math.max(this.zoomLevel, 1);
+
     //Starting and last x axis coord for loop
-    //Draw lines based of the current stage position, the stage width (viewport) and the gridSize based on zoomLevel
     const startX =
       Math.floor((-this.stage.x() - stageWidth) / weightedFieldSize) *
       weightedFieldSize;
@@ -761,33 +758,26 @@ export class GraphEditorComponent implements AfterViewInit {
       weightedFieldSize *
       this.zoomLevel;
 
+    //storing the number of shapes contained by the grids based on the grid size
     var gridCounts: (Shape[])[][] = [];
     const numX = Math.floor((endX - startX) / weightedFieldSize);
     const numY = Math.floor((endY - startY) / weightedFieldSize);
 
-    //gridCounts = Array.from({ length: numX }, () => Array(numY).fill([]));
     gridCounts = Array.from({ length: numX }, () =>
                  Array.from({ length: numY }, () => []));
-
-    //console.log("x: " + numX + " y:" + numY);
     
     var shapes = this.stage?.find('Shape').filter((x) => this.isSelectable(x));
-    //var subShapes: Konva.Shape[] = [];
 
+    //Handling the display of the shapes based on the zoom level
     shapes.forEach(shape => {
       const gridX = Math.floor((shape.x() - startX) / weightedFieldSize);
       const gridY = Math.floor((shape.y() - startY) / weightedFieldSize);
 
       if (gridX >= 0 && gridX < numX && gridY >= 0 && gridY < numY) {
         gridCounts[gridX][gridY].push(shape as Konva.Shape);
-        console.log("griddata: " + gridX + " " + gridY + " nums " + numX + " " + numY);
-        
-        //subShapes.push(shape as Konva.Shape);
       }
     
-      //console.log(gridX + " " + isTopLeftQuarter);
       var snappos = this.calculateGridSnapPosition(shape.position());
-      //console.log(snappos, shape.position(), );
       
       if (!(snappos.x == shape.x() && snappos.y == shape.y())){
         shape.visible(false);
@@ -796,25 +786,19 @@ export class GraphEditorComponent implements AfterViewInit {
       }
     });
 
+    //Handling the display of the groupShapes based on the zoom level
     for (let i = 0; i < gridCounts.length; i++) {
       for (let j = 0; j < gridCounts[i].length; j++) {
         const count = gridCounts[i][j].length;
         if (count > 0) {
-          console.log(i + " " + j);
-
           const pos = {x: startX + i * weightedFieldSize,y: startY + j * weightedFieldSize};
 
           var snapPos = this.calculateGridSnapPosition(pos);
-          // || gridCounts[i][j].some(shape => (shape as RectangleShape).zoomLevel === this.zoomLevel && shape instanceof RectangleShape && shape.x() === snapPos.x && shape.y() === snapPos.y && prevZoomLevel < this.zoomLevel)
-          //if (!gridCounts[i][j].some(shape => shape.x() === snapPos.x && shape.y() === snapPos.y))
           if (gridCounts[i][j].some(shape => (shape as RectangleShape).zoomLevel < this.zoomLevel && shape instanceof RectangleShape))
               this.drawShape(ShapeType.GROUPRECTANGLE, snapPos.x, snapPos.y, true, count, gridCounts[i][j]);
-          //console.log(`Count at (${i}, ${j}): ${count}`);
         }
       }
     }
-    //console.log("startx:" + startX + " endx:" + endX + " starty:" + startY + " endy:" + endY + " fieldsize:" + weightedFieldSize);
-    
   }
 
   //Reposition stage, but the coords are clamped and based on zoom level.
@@ -976,27 +960,6 @@ export class GraphEditorComponent implements AfterViewInit {
     return x >= x1 && x <= x2 && y >= y1 && y <= y2;
   }
 
-  private isPointWithinSelection2(x: number, y: number, rX: number, rY: number, Rwidth: number, Rheight: number): boolean {
-    const x1 = Math.min(
-      rX,
-      rX + Rwidth
-    );
-    const x2 = Math.max(
-      rX,
-      rX + Rwidth
-    );
-    const y1 = Math.min(
-      rY,
-      rY + Rheight
-    );
-    const y2 = Math.max(
-      rY,
-      rY + Rheight
-    );
-
-    return x >= x1 && x <= x2 && y >= y1 && y <= y2;
-  }
-
   //Creates a unique 4bit format id
   //Given number in the parameter defines how many 4bit parts should the id contain
   //4bit parts separated by '-' character
@@ -1054,14 +1017,11 @@ export class GraphEditorComponent implements AfterViewInit {
     selectedShapes.forEach((actShape) => {
       if (this.isSelectable(actShape) && actShape instanceof Konva.Shape) {
         actShape.unselectShape();
-        //actShape.groupId = group.attrs.id;
         actShape.group = group;
         group.add(actShape);
         actShape.unselectShape();
       }
     });
-
-    //currentShape.attrs.group = group;
 
     this.selectedLayer?.add(group);
     this.selectedLayer?.draw();
@@ -1102,13 +1062,10 @@ export class GraphEditorComponent implements AfterViewInit {
   //Deletes the clicked shape
   public deleteShape(): void {
     if (this.clickedShape === undefined) return;
-
-    console.log(this.clickedShape);
     
     if (this.clickedShape instanceof GroupRectangleShape) {
 
-      // delete subshapes
-
+      // delete subshapes if there are any
       this.clickedShape.subShapes.forEach(subShape => {
         const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === subShape?.attrs.group);
 
@@ -1128,49 +1085,27 @@ export class GraphEditorComponent implements AfterViewInit {
         subShape.destroy();
         this.isShowContextMenu = false;
       });
-
-      // delete groupshape
-      const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === this.clickedShape?.attrs.group);
-
-      if (sameGroupShapes.length < 3) {
-        const groupToDelete = this.clickedShape.attrs.group;
-
-        sameGroupShapes.forEach((actShape) => {
-          actShape.attrs.group = undefined;
-        });
-
-        const index = this.groups.indexOf(groupToDelete);
-        if (index !== -1) {
-          this.groups.splice(index, 1);
-        }
-      }
-
-      this.clickedShape.destroy();
-      this.isShowContextMenu = false;
-      this.clickedShape = undefined;
     }
-    else {
-      const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === this.clickedShape?.attrs.group);
 
-      if (sameGroupShapes.length < 3) {
-        const groupToDelete = this.clickedShape.attrs.group;
+    // delete clicked shape
+    const sameGroupShapes = this.stage?.find('Shape').filter((x) => x.attrs.group === this.clickedShape?.attrs.group);
 
-        sameGroupShapes.forEach((actShape) => {
-          actShape.attrs.group = undefined;
-        });
+    if (sameGroupShapes.length < 3) {
+      const groupToDelete = this.clickedShape.attrs.group;
 
-        //this.groups = this.groups.filter(group => group !== groupToDelete);
-        const index = this.groups.indexOf(groupToDelete);
-        if (index !== -1) {
-          this.groups.splice(index, 1);
-        }
+      sameGroupShapes.forEach((actShape) => {
+        actShape.attrs.group = undefined;
+      });
+
+      const index = this.groups.indexOf(groupToDelete);
+      if (index !== -1) {
+        this.groups.splice(index, 1);
       }
-
-      this.clickedShape.destroy();
-      this.isShowContextMenu = false;
-      this.clickedShape = undefined;
     }
-    
+
+    this.clickedShape.destroy();
+    this.isShowContextMenu = false;
+    this.clickedShape = undefined;
 
     const selectedShapes = this.stage?.find('Shape').filter((x) => x.attrs.isSelected);
 

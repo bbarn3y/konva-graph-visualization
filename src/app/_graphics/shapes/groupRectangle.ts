@@ -40,8 +40,6 @@ export class GroupRectangleShape extends Konva.Shape implements Selectable {
     this.setAttrs({ x, y, width, height, draggable });
     this.count = count;
     this.subShapes = subShapes;
-    console.log(subShapes);
-    
   }
 
   drawShape(layer: Konva.Layer, shapeSizeX: number, shapeSizeY: number) {
@@ -56,8 +54,6 @@ export class GroupRectangleShape extends Konva.Shape implements Selectable {
         listening: false
       });
       layer.add(this.numberText);
-
-      //console.log("numtext", this.numberText);
   }
 
   override destroy(): this {

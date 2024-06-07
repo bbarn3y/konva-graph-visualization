@@ -45,29 +45,6 @@ export class RectangleShape extends Konva.Shape implements Selectable {
     layer.add(this);
   }
 
-  // shape() {
-  //   const rect = new Konva.Rect({
-  //     x: this.x(),
-  //     y: this.y(),
-  //     width: this.width(),
-  //     height: this.height(),
-  //     draggable: this.draggable(),
-  //     // x: this.x,
-  //     // y: this.y,
-  //     // width: this.width,
-  //     // height: this.height,
-  //     fill: Colors.defaultBg,
-  //     stroke: 'black',
-  //     strokeWidth: 4,
-  //     // draggable: this.draggable,
-  //     type: ShapeType.RECTANGLE,
-  //     selectShape: this.selectShape.bind(this),
-  //     unselectShape: this.unselectShape.bind(this),
-  //   });
-
-  //   return rect;
-  // }
-
   selectShape() {
     this.stroke('yellow');
     this.isSelected = true;
