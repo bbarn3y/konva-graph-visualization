@@ -14,10 +14,9 @@ import Shape = Konva.Shape;
 import Group = Konva.Group;
 import { ShapeType } from 'src/app/_models/shape-type';
 import { RectangleShape } from 'src/app/_graphics/shapes/rectangle';
-import { Vector2d } from 'konva/lib/types';
-import { from, last } from 'rxjs';
-import { Breakpoint } from 'src/app/_graphics/shapes/breakpoint';
+import { PathSegment, Vector2d } from 'konva/lib/types';
 import {
+  BestPoint,
   FinalLineGuide,
   GuideOrientation,
   LineGuide,
@@ -26,12 +25,11 @@ import {
   ObjectSnappingEdges,
   SnapDirection,
 } from 'src/app/_interfaces/shapeTypes';
-import { KonvaEventObject, Node, NodeConfig } from 'konva/lib/Node';
 import { PlaceholderShapes } from 'src/app/_constants/placeholderShapes';
-import { RGBA } from 'konva/lib/filters/RGBA';
-import { defaultShapes } from 'src/app/_constants/defaultShapes';
-import { Selectable, SelectableShape } from 'src/app/_interfaces/selectable';
+import { DefaultShapes } from 'src/app/_constants/defaultShapes';
+import { Selectable } from 'src/app/_interfaces/selectable';
 import { GroupRectangleShape } from 'src/app/_graphics/shapes/groupRectangle';
+import { ConnectionData, isConnectable } from 'src/app/_interfaces/connectable';
 
 @Component({
   selector: 'app-graph-editor',
@@ -47,12 +45,12 @@ export class GraphEditorComponent implements AfterViewInit {
   static IdCount = 1;
   selectRectangle?: Konva.Rect;
   groups: Konva.Group[] = [];
-  //currentShape?: Konva.Shape;
   placeHolderShape?: Konva.Shape | Konva.Group;
   clickedShape?: Konva.Shape;
   gridLayer?: Konva.Layer;
-  placeholderLayer?: Konva.Layer;
-  //@TODO: Put in configuration
+  placeholderLayerLower?: Konva.Layer;
+  placeholderLayerUpper?: Konva.Layer;
+  //Configuration
   fieldSize: number = 100;
   windowWidth: number = 300;
   windowHeight: number = 300;
@@ -81,26 +79,28 @@ export class GraphEditorComponent implements AfterViewInit {
   snapDistance: number = 20;
 
   //Arrow related
+  connectionLayer?: Konva.Layer;
+  connectionAnchorLayer?: Konva.Layer;
   placeholderArrow = PlaceholderShapes.placeHolderArrow;
   placeholderConnection = PlaceholderShapes.placeHolderConnectionCircle;
   isDrawingLine: boolean = false;
-  breakpointsById: { [k: string]: Breakpoint[] } = {};
-  linesById: { [k: string]: (Konva.Line | Konva.Arrow)[] } = {};
-  currentLineId?: string;
-  breakpoints: Breakpoint[] = [];
-  currentBreakpoint?: Breakpoint;
+  tempConnectionData?: ConnectionData;
+  placeholderAnchor: Konva.Circle = DefaultShapes.lineAnchor.clone();
+  bestPoint?: BestPoint;
+  hoveredPathSegment?: PathSegment;
+
 
   @HostListener('window:resize', ['$event'])
   onResize(event: any) {
     this.updateViewport();
     this.rePositionStage();
-    //this.updateGrid();
   }
 
   ShapeType = ShapeType;
   ngAfterViewInit(): void {
     this.initState(() => {
       this.addEventListeners();
+      this.adjustZoomLevel();
     });
   }
 
@@ -116,6 +116,8 @@ export class GraphEditorComponent implements AfterViewInit {
       if (this.stage) {
         this.gridLayer = new Konva.Layer();
         this.stage.add(this.gridLayer);
+        this.connectionLayer = new Konva.Layer();
+        this.stage.add(this.connectionLayer);
         this.gridLayer.on('dragmove', (e) => {
           this.gridLayer?.find('.guid-line').forEach((l) => l.destroy());
 
@@ -179,13 +181,30 @@ export class GraphEditorComponent implements AfterViewInit {
         this.gridLayer.on('dragend', (e) => {
           layer.find('.guid-line').forEach((l) => l.destroy());
         });
+
+        //Hide the placeholders
+        this.placeholderLayerLower = new Konva.Layer();
+        this.placeholderAnchor.opacity(0.0);
+        this.placeholderAnchor.listening(false);
+        this.placeholderAnchor.hitStrokeWidth(0);
+        this.bestPoint = undefined;
+        
+        this.placeholderLayerLower.add(this.placeholderAnchor);
+        this.stage.add(this.placeholderLayerLower);
+
         const layer = new Konva.Layer();
         this.stage.add(layer);
-        this.selectedLayer = this.stage.getLayers()[1];
+        const actLayers = this.stage.getLayers();
+        this.selectedLayer = actLayers[actLayers.length - 1];
 
-        this.placeholderLayer = new Konva.Layer();
-        this.placeholderLayer.add(this.placeholderConnection);
-        this.stage.add(this.placeholderLayer);
+        this.placeholderLayerUpper = new Konva.Layer();
+
+        this.placeholderLayerUpper.add(this.placeholderConnection);
+      
+        this.stage.add(this.placeholderLayerUpper);
+
+        this.connectionAnchorLayer = new Konva.Layer();
+        this.stage.add(this.connectionAnchorLayer);
 
         this.stage.getLayers().map((layer) => layer.draw());
         this.adjustZoomLevel();
@@ -220,46 +239,29 @@ export class GraphEditorComponent implements AfterViewInit {
       //Draw arrow to shape
       if (
         (this.isDrawingLine &&
-          this.currentLineId &&
           clickTarget instanceof Konva.Shape) ||
           clickTarget instanceof Konva.Group
       ) {
-        //this.addArrow(this.calculateCenterPosition(shape));
-        this.addArrow(this.calculateConnectionPosition(pointerPosition, clickTarget));
-      } else if (this.isDrawingLine && this.currentLineId) {
-        const points = this.placeholderArrow.points();
-        if (!this.breakpointsById[this.currentLineId])
-          this.breakpointsById[this.currentLineId] = [];
-        const tempLine = defaultShapes.connectionLine.clone().points(points);
-        this.linesById[this.currentLineId].push(tempLine);
-        this.selectedLayer?.add(tempLine);
-        const tempBreakPoint = new Breakpoint(
-          this.stage,
-          points[2],
-          points[3],
-          true,
-          this.currentLineId,
-          this.breakpointsById[this.currentLineId].length
-        );
-        this.breakpointsById[this.currentLineId].push(tempBreakPoint);
-
-        const shape = tempBreakPoint.shape();
-        shape.on('dragmove', (e) => {
-          const pointerPos = this.stage.getRelativePointerPosition();
-          if (!pointerPos) return;
-          tempBreakPoint.x = pointerPos.x;
-          tempBreakPoint.y = pointerPos.y;
-          this.updateLinesById(tempBreakPoint.lineId);
-        });
-        this.selectedLayer?.add(shape);
-        this.updateLinesById(this.currentLineId);
-        this.placeholderArrow.points([
-          points[2],
-          points[3],
-          pointerPosition.x,
-          pointerPosition.y,
-        ]);
-        //this.addBreakpoint({x: points[2], y: points[3]});
+        const actPos = this.calculateConnectionPosition(pointerPosition, clickTarget);
+        if (this.tempConnectionData === undefined) return;
+        if (isConnectable(clickTarget)) {
+          this.tempConnectionData.endShapeId = clickTarget.id();
+          clickTarget.addConnection(this.tempConnectionData);
+        }
+        this.cancelDrawLine();
+      } else if (this.isDrawingLine) {
+        if (this.tempConnectionData === undefined) return;
+        const actPos = this.snapToAngleHelper({ x: this.tempConnectionData.points[this.tempConnectionData.points.length - 2], y: this.tempConnectionData.points[this.tempConnectionData.points.length - 1] }, pointerPosition); //this.calculateConnectionPosition(pointerPosition, clickTarget);
+        if (this.tempConnectionData !== undefined && actPos) {
+          this.tempConnectionData.points.push(...[actPos.x, actPos.y]);
+        }
+      } else if (!this.isDrawingLine && !this.selectedShape && clickTarget instanceof Konva.Arrow) {
+        const actPoints = (clickTarget as Konva.Line).points();
+        if (this.placeholderAnchor) {
+          this.insertBreakpoint(actPoints, this.placeholderAnchor.x(), this.placeholderAnchor.y());
+          clickTarget.points(actPoints);
+          this.updateConnections();
+        }
       } else if (this.selectedShape) {
         this.drawShape(this.selectedShape, snapPos.x, snapPos.y, true);
       }
@@ -297,10 +299,6 @@ export class GraphEditorComponent implements AfterViewInit {
               actShape.unselectShape();
             }
           });
-
-          if (this.isSelectable(clickTarget)){
-            clickTarget.isSelected ? clickTarget.unselectShape() : clickTarget.selectShape(); 
-          }
         }
                 
         // Handling group selection and unselection
@@ -381,7 +379,6 @@ export class GraphEditorComponent implements AfterViewInit {
       //Modify the zoomLevel based on the stage scale.
       this.adjustZoomLevel(newScale);
       this.stage.setPointersPositions(event);
-      //console.log(this.zoomLevel);
       
     });
 
@@ -477,12 +474,52 @@ export class GraphEditorComponent implements AfterViewInit {
         return;
       }
 
-      //Update placeholderArrow points based on pointer pos
       if (this.isDrawingLine) {
-        this.updateArrow();
+        // If we are currently drawing a line, hide the placeholder anchor and reset the best point.
+        this.placeholderAnchor.opacity(0.0);
+        this.bestPoint = undefined;
+        this.updatePlaceholderArrow();
         return;
+      } else {
+        // Get the current pointer position relative to the stage.
+        const pointerPos = this.stage.getRelativePointerPosition();
+        if (!pointerPos) return;
+        if (!this.connectionLayer) return;
+        if (this.connectionLayer.children && this.connectionLayer.children.length === 0) return;
+        
+        // Extract all points from the arrows in the connection layer.
+        const actAllPoints: number[] = this.connectionLayer.children
+          .filter((child) => 'points' in child.attrs)
+          .flatMap((arrow) => arrow.attrs.points as number[]);
+        
+        // If there are no points, exit the function.
+        if (!actAllPoints || actAllPoints.length === 0) return;
+        
+        // Create a clone of the placeholder arrow and set its points.
+        const actArrow: Konva.Arrow = this.placeholderArrow.clone();
+        actArrow.points(actAllPoints);
+        
+        // Reset the best point.
+        this.bestPoint = undefined;
+        
+        // Find the closest point on the transformed path to the current pointer position.
+        const actBestPoint = this.getClosestPoint(this.transformArrowToPath(actArrow), pointerPos);
+        
+        // If a best point is found and the distance is less than 25, update the best point.
+        if (actBestPoint && actBestPoint.distance < 25) {
+          this.bestPoint = actBestPoint;
+        }
+        
+        // If there is a best point, show the placeholder anchor at this position.
+        if (this.bestPoint) {
+          this.placeholderAnchor.opacity(1.0);
+          this.placeholderAnchor.position({ x: this.bestPoint.x, y: this.bestPoint.y });
+        } else {
+          // Otherwise, hide the placeholder anchor and reset the best point.
+          this.placeholderAnchor.opacity(0.0);
+          this.bestPoint = undefined;
+        }
       }
-    });
 
     this.stage.on('mouseup', (event) => {
       // Clear the selection rectangle when the left mouse button is released
@@ -499,7 +536,6 @@ export class GraphEditorComponent implements AfterViewInit {
             actShape.selectShape();
           }
         });
-
         this.selectRectangle.destroy();
         this.selectRectangle = undefined;
         this.selectedLayer?.batchDraw();
@@ -540,31 +576,40 @@ export class GraphEditorComponent implements AfterViewInit {
             e.currentTarget.moveToTop();
           });
           shape.on('dragend', (e) => {
-            e.currentTarget.position(
-              this.calculateGridSnapPosition(e.currentTarget.getPosition())
-            );
+            const snapPos = this.calculateGridSnapPosition(e.currentTarget.getPosition());
+            e.currentTarget.position(snapPos);
+            this.updateConnections();
           });
-          shape.on('dragmove', (e) => {
-            e.currentTarget.position(
-              this.calculateGridSnapPosition(e.currentTarget.getPosition())
-            );
+          shape.on('dragmove', (e,) => {
+            this.placeholderAnchor.opacity(0.0);
+            const snapPos = this.calculateGridSnapPosition(e.currentTarget.getPosition());
+            e.currentTarget.position(snapPos);
+            this.updateConnections();
           });
           shape.on('dblclick', (e) => {
             if (
               e.currentTarget instanceof Konva.Shape ||
               e.currentTarget instanceof Konva.Group
             ) {
-              this.selectedLayer?.add(this.placeholderArrow);
-              this.currentLineId = e.currentTarget.id();
-              if (!this.currentLineId) return;
+              //Drawing line is only available on lowest zoom level (1-2)
+              if (this.zoomLevel > 2) return;
+              const pointerPos = this.stage.getPointerPosition();
+              if (!pointerPos) return;
               this.isDrawingLine = true;
-              this.linesById[this.currentLineId] = [];
-              this.drawArrow(
-                this.calculateConnectionPosition(
-                  this.stage.getRelativePointerPosition()!,
-                  e.currentTarget
-                )
-              );
+              const connectionPos = this.calculateConnectionPosition(this.stage.getRelativePointerPosition()!, e.currentTarget);
+              const snapPos = this.snapToAngleHelper(connectionPos, pointerPos);
+              this.tempConnectionData = {
+                connectionId: this.getUniqueId(4),
+                startShapeId: e.currentTarget.id(),
+                endShapeId: '',
+                points: [],
+                arrowShape: this.placeholderArrow
+              }
+              this.placeholderArrow.attrs.connectionId = this.tempConnectionData.connectionId;
+              this.connectionLayer?.add(this.placeholderArrow);
+              if (this.tempConnectionData !== undefined) {
+                this.tempConnectionData.points = [connectionPos.x, connectionPos.y, snapPos.x, snapPos.y];
+              }
             }
           });
 
@@ -577,9 +622,16 @@ export class GraphEditorComponent implements AfterViewInit {
               if (!pointerPos) return;
 
               //Placeholder connection shape
-              this.placeholderConnection.position(
+              const fromPos = this.tempConnectionData && this.tempConnectionData.points.length >= 4 ?
+                this.calculateConnectionPosition(
+                  {
+                    x: this.tempConnectionData.points[this.tempConnectionData.points.length - 4],
+                    y: this.tempConnectionData.points[this.tempConnectionData.points.length - 3]
+                  },
+                  e.currentTarget)
+                :
                 this.calculateConnectionPosition(pointerPos, e.currentTarget)
-              );
+              this.placeholderConnection.position(fromPos);
               this.placeholderConnection.opacity(0.65);
             }
           });
@@ -687,7 +739,7 @@ export class GraphEditorComponent implements AfterViewInit {
       this.zoomLevel;
     //In every loop we draw a line in every direction
     //then increasing the current x pos by gridSize
-    const gridLine = defaultShapes.gridLine;
+    const gridLine = DefaultShapes.gridLine;
     for (let x = startX; x < endX; x += weightedFieldSize) {
       this.gridLayer.add(gridLine.clone().points([x, 0, startY - endY]));
       this.gridLayer.add(gridLine.clone().points([-x, 0, -x, endY - startY]));
@@ -707,8 +759,8 @@ export class GraphEditorComponent implements AfterViewInit {
 
   //Adjust the zoomLevel based on current stage scale or the given value.
   adjustZoomLevel(scale?: number) {
+    //@NOTE: Could be a configuration
     if (!scale) scale = this.stage.scaleX();
-    //@TODO: Add to configuration
     const actZoomLevel = this.zoomLevel;
     if (scale >= 1.3) {
       this.zoomLevel = 1;
@@ -719,14 +771,14 @@ export class GraphEditorComponent implements AfterViewInit {
     }
 
     if (this.zoomLevel != actZoomLevel) {
-      this.updateZoomGorup();
+      this.updateZoomGroup();
     }
 
     this.updateGrid();
   }
 
   //Update the group of shapes based on the zoom level
-  updateZoomGorup() {
+  updateZoomGroup() {
     if (!this.gridLayer || !this.selectedLayer) return;
 
     //Remove all previous groupShapes
@@ -1049,7 +1101,6 @@ export class GraphEditorComponent implements AfterViewInit {
       }
     });
 
-    //this.groups.filter(group => group !== groupToDelete);
     const index = this.groups.indexOf(groupToDelete);
     if (index !== -1) {
       this.groups.splice(index, 1);
@@ -1081,7 +1132,6 @@ export class GraphEditorComponent implements AfterViewInit {
             this.groups.splice(index, 1);
           }
         }
-
         subShape.destroy();
         this.isShowContextMenu = false;
       });
@@ -1119,136 +1169,277 @@ export class GraphEditorComponent implements AfterViewInit {
     });
   }
 
-  //Arrow related
-  updateLinesById(id: string): void {
-    if (!this.linesById[id] || !this.breakpointsById[id]) return;
-    if (this.linesById[id].length <= 0) return;
-    if (
-      this.linesById[id].length < this.breakpointsById[id].length &&
-      this.linesById[id].length > 1
-    ) {
-      this.breakpointsById[id].pop();
-      this.updateLinesById(id);
-      return;
-    }
-    const lastIndex = this.linesById[id].length - 1;
-    this.linesById[id].forEach((line, index) => {
-      if (index === 0) {
-        const br = this.breakpointsById[id][index];
-        const points = this.linesById[id][index].points();
-        const firstPos = {
-          x: points[0],
-          y: points[1],
-        } as Vector2d;
-        line.points([firstPos.x, firstPos.y, br.x, br.y]);
-      } else if (index === lastIndex) {
-        const br = this.breakpointsById[id][index - 1];
-        const points = this.linesById[id][index].points();
-        const lastPos = {
-          x: points[2],
-          y: points[3],
-        } as Vector2d;
-        line.points([br.x, br.y, lastPos.x, lastPos.y]);
-      } else {
-        const br = this.breakpointsById[id][index];
-        const prevBr = this.breakpointsById[id][index - 1];
-        line.points([prevBr.x, prevBr.y, br.x, br.y]);
-      }
-    });
-  }
-
-  addArrow(endPos: Vector2d) {
-    if (!this.currentLineId) return;
-    if (
-      !this.linesById[this.currentLineId] ||
-      !this.breakpointsById[this.currentLineId]
-    )
-      return;
-    const tempArrow = this.placeholderArrow.clone();
-    const tempPoints = tempArrow.points();
-
-    tempArrow.points([tempPoints[0], tempPoints[1], endPos.x, endPos.y]);
-    tempArrow.opacity(1);
-    this.linesById[this.currentLineId].push(tempArrow);
-    this.selectedLayer?.add(tempArrow);
-    this.cancelDrawLine();
-  }
-
-  drawArrow(fromPos: Vector2d) {
-    const pointerPos = this.stage.getRelativePointerPosition();
-    if (!pointerPos) return;
-    pointerPos.x;
-    const deltaX = pointerPos.x - 10 - fromPos.x;
-    const deltaY = pointerPos.y - 10 - fromPos.y;
-    const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-
-    const snappedAngle = this.snapToAngle(angle, 90, 5);
-
-    const length = Math.sqrt(deltaX ** 2 + deltaY ** 2);
-    const snappedX =
-      fromPos.x + length * Math.cos((snappedAngle * Math.PI) / 180);
-    const snappedY =
-      fromPos.y + length * Math.sin((snappedAngle * Math.PI) / 180);
-    this.placeholderArrow.points([fromPos.x, fromPos.y, snappedX, snappedY]);
-    this.selectedLayer?.add(this.placeholderArrow);
-  }
-  // drawLine(fromPos: Vector2d, toPos: Vector2d) {
-  //   //@TODO: Add to config
-  //   const line = new Konva.Line({
-  //     points: [fromPos.x, fromPos.y, toPos.x, toPos.y],
-  //     stroke: 'black',
-  //     width: 5,
-  //     draggable: false
-  //   })
-  //   this.selectedLayer?.add(line);
-  // }
-
   snapToAngle(angle: number, targetAngle: number, threshold: number) {
     const snappedAngle = Math.round(angle / targetAngle) * targetAngle;
     const diff = Math.abs(angle - snappedAngle);
     return diff <= threshold ? snappedAngle : angle;
   }
-  updateArrow() {
+  updatePlaceholderArrow() {
+    if (this.tempConnectionData === undefined) return;
     const pointerPos = this.stage.getRelativePointerPosition();
+    
     if (!pointerPos) return;
-    const startPoints = {
-      x: this.placeholderArrow.points()[0],
-      y: this.placeholderArrow.points()[1],
-    };
-    this.selectedLayer?.add(this.placeholderArrow);
+    let actPoints: number[] = this.tempConnectionData.points;
+    let startPoints: Vector2d = { x: pointerPos.x, y: pointerPos.y };
+    if (actPoints.length >= 4) {
+      startPoints = {
+        x: actPoints[actPoints.length - 4],
+        y: actPoints[actPoints.length - 3],
+      };
+    } else {
+      startPoints = {
+        x: actPoints[actPoints.length - 2],
+        y: actPoints[actPoints.length - 1],
+      };
+    }
+
     const snapPos = this.snapToAngleHelper(startPoints, pointerPos);
-    this.placeholderArrow.points([
-      startPoints.x,
-      startPoints.y,
-      snapPos.x,
-      snapPos.y,
-    ]);
+      actPoints[actPoints.length - 2] = snapPos.x;
+      actPoints[actPoints.length - 1] = snapPos.y;
+    this.placeholderArrow.points(actPoints);
   }
 
   cancelDrawLine() {
     this.isDrawingLine = false;
     this.placeholderArrow.remove();
-    this.currentLineId = undefined;
+    this.placeholderArrow.attrs.connectionId = '';
+    this.tempConnectionData = undefined;
+    this.updateConnections();
   }
+
+  updateConnections() {
+    // Ensure necessary layers are available
+    if (!this.selectedLayer) return;
+    if (!this.connectionLayer) return;
+    if (!this.connectionAnchorLayer) return;
+
+    // Find all connectable shapes in the selected layer
+    const actConnectableShapes = this.selectedLayer.find('Shape').filter((shape) => isConnectable(shape));
+
+    // Collect all unique connections from the connectable shapes
+    const allConnection = [... new Set(actConnectableShapes.map((shape) => isConnectable(shape) ? shape.connections : []))].filter((array) => array.length > 0);
+
+     // Clear existing children in connection layers
+    this.connectionLayer.children = [];
+    this.connectionAnchorLayer.children = [];
+
+    allConnection.forEach((connection) => {
+      connection.forEach((connectionData) => {
+        const pointerPos = this.stage.getPointerPosition();
+        if (!pointerPos) return;
+        // Find the start and end shapes for the connection
+        const actStartShape = actConnectableShapes.find((shape) => isConnectable(shape) && shape.id() === connectionData.startShapeId);
+        const actEndShape = actConnectableShapes.find((shape) => isConnectable(shape) && shape.id() === connectionData.endShapeId);
+        if (!actStartShape || !actEndShape) return;
+
+        // Update connection points if there are at least 4 points
+        if (connectionData.points.length >= 4) {
+        const startSnapPos = this.calculateConnectionPosition({ x: connectionData.points[2], y: connectionData.points[3] }, actStartShape as Shape);
+        const endSnapPos = this.calculateConnectionPosition({ x: connectionData.points[connectionData.points.length - 4], y: connectionData.points[connectionData.points.length - 3] }, actEndShape as Shape);
+          connectionData.points[0] = startSnapPos.x;
+          connectionData.points[1] = startSnapPos.y;
+          connectionData.points[connectionData.points.length - 2] = endSnapPos.x;
+          connectionData.points[connectionData.points.length - 1] = endSnapPos.y;
+
+          //Add breakpoints to over inner coords
+          if (connectionData.points.length >= 6) {
+            //Split the points into pairs, excluding the first and last points
+            const pairs = connectionData.points.reduce<number[][]>((result, value, index, array) => {
+              if (index % 2 === 0) {
+                result.push(array.slice(index, index + 2));
+              }
+              return result;
+            }, []);
+            if (pairs.length >= 2) {
+              pairs.shift();
+              pairs.pop();
+              pairs.forEach((pair, index) => {
+                // Create and configure an anchor for each pair of coordinates
+                const actAnchor: Konva.Circle = DefaultShapes.lineAnchor.clone();
+                actAnchor.attrs.connectionId = connectionData.connectionId;
+                actAnchor.attrs.x = pair[0];
+                actAnchor.attrs.y = pair[1];
+                index = (index + 1) * 2;
+                actAnchor.on('dragstart', (e) => {
+                  this.placeholderAnchor.opacity(0.0);
+                });
+                // Update arrow shape points during anchor drag
+                actAnchor.on('dragmove', (e) => {
+                  const actDragPos = e.currentTarget.getPosition();
+                  if (!actDragPos) return;
+                  const actPoints = connectionData.arrowShape.points();
+                  actPoints[index] = actDragPos.x;
+                  actPoints[index + 1] = actDragPos.y;
+                  connectionData.arrowShape.points(actPoints);
+                  this.connectionLayer?.draw();
+                });
+                //Re-update connections on drag end
+                actAnchor.on('dragend', (e) => {
+                  this.updateConnections();
+                });
+                this.connectionAnchorLayer?.add(actAnchor);
+                this.connectionLayer?.draw();
+                this.connectionAnchorLayer?.draw();
+              });
+            }
+          }
+      } else {
+          console.log('Bad connection data!', connectionData);
+      }
+        // Update arrow shape points with the connection data points
+        connectionData.arrowShape.points(connectionData.points);
+        const actArrow: Konva.Arrow = PlaceholderShapes.placeHolderArrow.clone();
+        actArrow.hitStrokeWidth(48);
+        actArrow.listening(true);
+        actArrow.attrs.points = connectionData.points;
+        this.connectionLayer?.add(actArrow);
+        this.connectionLayer?.batchDraw();
+      })
+    })
+  }
+
+  pointsToPath(points: number[]){
+    let path = '';
+    for (var i = 0; i < points.length;  i = i + 2){
+      switch (i){
+        case 0:  // move to 
+          path = path + 'M ' + points[i] + ',' + points[i + 1] + ' ';
+          break;
+        default: 
+          path = path + 'L ' + points[i] + ',' + points[i + 1] + ' ';
+          break;
+      }
+    }
+    return path;
+  }
+
+  transformArrowToPath(arrowShape: Konva.Arrow) {
+    // Function to make a Konva path from the points array of a Konva.Line shape.
+    // Returns a path that can be given to a Konva.Path as the .data() value.
+    // Points array is as [x1, y1, x2, y2, ... xn, yn]
+    // Path is a string as "M x1, y1 L x2, y2...L xn, yn"
+    const actPath = new Konva.Path({
+      stroke: arrowShape.stroke(),
+      strokeWidth: arrowShape.strokeWidth(),
+      data: this.pointsToPath(arrowShape.points()),
+    });
+    return actPath;
+  }
+
+getClosestPoint(pathNode: Konva.Path, point: Vector2d): BestPoint | undefined {
+  const pathLength: number = pathNode.getLength(); // Get the total length of the path
+  const precision: number = 8; // Define the precision of the linear scan
+  let best: Vector2d | undefined;
+  let bestLength: number | undefined;
+  let bestDistance: number = Infinity;
+
+  // Function to calculate the squared distance between two points
+  function distance2(p: Vector2d): number {
+    const dx: number = p.x - point.x;
+    const dy: number = p.y - point.y;
+    return dx * dx + dy * dy;
+  }
+
+  // Perform a linear scan along the path with the defined precision
+  for (let scanLength: number = 0, scanDistance: number; scanLength <= pathLength; scanLength += precision) {
+    // Get the point on the path at the current length
+    const scan: Vector2d = pathNode.getPointAtLength(scanLength);
+
+    // Calculate the distance from the scan point to the target point
+    scanDistance = distance2(scan);
+
+    // If this distance is the smallest found so far, update the best point
+    if (scanDistance < bestDistance) {
+      // Map the lengths of the path segments
+      const mappedDataLenghts = pathNode.dataArray.map((value, index) => {
+        return pathNode.dataArray.slice(0, index + 1).reduce((acc, curr) => acc + curr.pathLength, 0);
+      });
+
+      // Filter out the segments that have been passed
+      const fitleredDataArray = mappedDataLenghts.map((data, index) => 
+      {
+        if (data >= scanLength) return index;
+        else return;
+      } 
+      ).filter((index) => index !== undefined);
+
+      best = scan;
+      bestLength = scanLength;
+      bestDistance = scanDistance;
+
+      // Store the hovered path segment for adding inner breakpoints
+      this.hoveredPathSegment = pathNode.dataArray[fitleredDataArray[0] ?? 0];
+    }
+  }
+
+  // Perform a binary search for a more precise estimate
+  let currentPrecision: number = precision / 2;
+  while (currentPrecision > 0.5) {
+    let before: Vector2d | undefined;
+    let after: Vector2d | undefined;
+    let beforeLength: number | undefined;
+    let afterLength: number | undefined;
+    let beforeDistance: number | undefined;
+    let afterDistance: number | undefined;
+    // Map the lengths of the path segments again for the current precision level
+    const mappedDataLenghts = pathNode.dataArray.map((value, index) => {
+        return pathNode.dataArray.slice(0, index + 1).reduce((acc, curr) => acc + curr.pathLength, 0);
+    });
+
+    // Skip over certain scan lengths to avoid redundant calculations
+    const actSkipScanLength = 10;
+    if (mappedDataLenghts.some((length) => length - actSkipScanLength <= bestLength! && length + actSkipScanLength >= bestLength!)) return undefined;
+    else if (
+      // Check if moving backwards along the path improves the result
+      (beforeLength = bestLength! - currentPrecision) >= 0 &&
+      (beforeDistance = distance2(before = pathNode.getPointAtLength(beforeLength))) < bestDistance)
+    {
+      best = before!;
+      bestLength = beforeLength;
+      bestDistance = beforeDistance;
+    } else if (
+      // Check if moving forwards along the path improves the result
+      (afterLength = bestLength! + currentPrecision) <= pathLength &&
+      (afterDistance = distance2(after = pathNode.getPointAtLength(afterLength))) < bestDistance)
+    {
+      best = after!;
+      bestLength = afterLength;
+      bestDistance = afterDistance;
+    } else {
+      // Reduce the precision for finer adjustments
+      currentPrecision /= 2;
+    }
+  }
+
+  if (!best) {
+    throw new Error("Failed to find closest point.");
+  }
+
+  // Return the closest point with its coordinates and distance
+  const closest: BestPoint = { x: best.x, y: best.y, distance: Math.sqrt(bestDistance) };
+  return closest;
+}
 
   snapToAngleHelper(startPos: Vector2d, endPos: Vector2d) {
-    const deltaX = endPos.x - startPos.x;
-    const deltaY = endPos.y - startPos.y;
-    const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+  // Calculate the difference in x and y coordinates between the start and end positions
+  const deltaX = endPos.x - startPos.x;
+  const deltaY = endPos.y - startPos.y;
 
-    const snappedAngle = this.snapToAngle(angle, 90, 5);
+  // Calculate the angle in degrees from the horizontal axis to the line connecting startPos and endPos
+  const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
 
-    const length = Math.sqrt(deltaX ** 2 + deltaY ** 2);
-    const snappedX =
-      startPos.x + length * Math.cos((snappedAngle * Math.PI) / 180);
-    const snappedY =
-      startPos.y + length * Math.sin((snappedAngle * Math.PI) / 180);
+  // Snap the calculated angle to the nearest multiple of 90 degrees within a tolerance of 5 degrees
+  const snappedAngle = this.snapToAngle(angle, 90, 5);
 
-    return { x: snappedX, y: snappedY } as Vector2d;
-  }
+  // Calculate the distance (length) between startPos and endPos
+  const length = Math.sqrt(deltaX ** 2 + deltaY ** 2);
 
-  newBreakpoint(pos: Vector2d) {
-    return new Breakpoint(this.stage, pos.x, pos.y, true, '', 0);
+  // Calculate the new x and y coordinate after snapping to the angle
+  const snappedX = startPos.x + length * Math.cos((snappedAngle * Math.PI) / 180);
+  const snappedY = startPos.y + length * Math.sin((snappedAngle * Math.PI) / 180);
+
+  // Return the new coordinates as a Vector2d object
+  return { x: snappedX, y: snappedY } as Vector2d;
   }
 
   //Guide line related
@@ -1411,14 +1602,6 @@ export class GraphEditorComponent implements AfterViewInit {
     });
   }
 
-  //Center of shape
-  calculateCenterPosition(shape: Konva.Shape | Konva.Group) {
-    return {
-      x: shape.x() + shape.width() / 2,
-      y: shape.y() + shape.height() / 2,
-    } as Vector2d;
-  }
-
   calculateConnectionPosition = (
     fromPos: Vector2d,
     toShape: Konva.Shape | Konva.Group
@@ -1477,6 +1660,33 @@ export class GraphEditorComponent implements AfterViewInit {
       }
     }
   };
+
+insertBreakpoint(points: number[], x: number, y: number): void {
+  // If there is no hovered path segment, return early
+  if (this.hoveredPathSegment === undefined) return;
+
+  // Convert the flat points array into pairs of [x, y] coordinates
+  const pairs = points.reduce<number[][]>((result, value, index, array) => {
+    if (index % 2 === 0) {
+      result.push(array.slice(index, index + 2));
+    }
+    return result;
+  }, []);
+
+  // If there are at least two pairs of points, proceed
+  if (pairs.length >= 2) {
+    pairs.map((pair, index) => {
+      // Check if the current pair matches the start of the hovered path segment
+      if (pair[0] === this.hoveredPathSegment?.start.x && pair[1] === this.hoveredPathSegment?.start.y) {
+        // Calculate the insertion index in the flat points array
+        const actIndex = index * 2 + 2;
+        
+        // Insert the new breakpoint (x, y) into the points array at the calculated index
+        points.splice(actIndex, 0, x, y);
+      }
+    });
+  }
+}
 
   isSelectable(object: any): object is Selectable {
     return object && object.isSelected != null && typeof(object.isSelected ) == 'boolean';

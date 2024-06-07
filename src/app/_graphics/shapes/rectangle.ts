@@ -2,18 +2,17 @@
  * <<licensetext>>
  */
 import Konva from 'konva';
-import { Group } from 'konva/lib/Group';
-import { Shape, ShapeConfig } from 'konva/lib/Shape';
-import { Colors } from 'src/app/_constants/colors';
-import { Selectable, SelectableShape } from 'src/app/_interfaces/selectable';
-import { ShapeType } from 'src/app/_models/shape-type';
+import { ShapeConfig } from 'konva/lib/Shape';
+import { Connectable, ConnectionData } from 'src/app/_interfaces/connectable';
+import { Selectable } from 'src/app/_interfaces/selectable';
 
-export class RectangleShape extends Konva.Shape implements Selectable {
+export class RectangleShape extends Konva.Shape implements Selectable, Connectable {
   stage: Konva.Stage;
   groupId: string = '';
   isSelected: boolean = false;
   group?: Konva.Group;
   zoomLevel: number;
+  connections: ConnectionData[] = [];
 
   constructor(
     stage: Konva.Stage,
@@ -39,6 +38,11 @@ export class RectangleShape extends Konva.Shape implements Selectable {
     this.stage = stage;
     this.setAttrs({ x, y, width, height, draggable });
     this.zoomLevel = zoomLevel;
+  }
+
+  addConnection(connectionData: ConnectionData): void {
+    this.connections.push(connectionData);
+    console.log('Connection added!', connectionData, this.connections);
   }
 
   drawShape(layer: Konva.Layer) {

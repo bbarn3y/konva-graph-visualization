@@ -2,6 +2,8 @@
  * <<licensetext>>
  */
 
+import { Vector2d } from "konva/lib/types";
+
 export enum SnapDirection {
   start = 'start',
   center = 'center',
@@ -41,4 +43,8 @@ export interface FinalLineGuide {
   offset: number;
   orientation: GuideOrientation;
   snap: SnapDirection;
+}
+
+export interface BestPoint extends Vector2d {
+  distance: number;
 }

@@ -10,8 +10,9 @@ export class PlaceholderShapes {
     fill: 'black',
     opacity: 0.7,
     width: 5,
-    draggable: true,
+    draggable: false,
     listening: false,
+    connectionId: ''
   });
 
   public static placeHolderConnectionCircle = new Konva.Circle({
