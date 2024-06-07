@@ -775,6 +775,14 @@ export class GraphEditorComponent implements AfterViewInit {
       this.updateZoomGroup();
     }
 
+    if (this.zoomLevel > 2) {
+      this.connectionLayer?.hide();
+      this.connectionAnchorLayer?.hide();
+    } else {
+      this.connectionLayer?.show();
+      this.connectionAnchorLayer?.show();
+    }
+
     this.updateGrid();
   }
 
