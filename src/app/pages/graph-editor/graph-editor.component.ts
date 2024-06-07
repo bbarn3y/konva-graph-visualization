@@ -232,7 +232,7 @@ export class GraphEditorComponent implements AfterViewInit {
       }
       const pointerPosition = this.stage?.getRelativePointerPosition();
       if (!pointerPosition) return;
-      const clickTarget = event.target;      
+      const clickTarget = event.target;
       
       const snapPos = this.calculateGridSnapPosition(pointerPosition);
 
@@ -240,7 +240,7 @@ export class GraphEditorComponent implements AfterViewInit {
       if (
         (this.isDrawingLine &&
           clickTarget instanceof Konva.Shape) ||
-          clickTarget instanceof Konva.Group
+        clickTarget instanceof Konva.Group
       ) {
         const actPos = this.calculateConnectionPosition(pointerPosition, clickTarget);
         if (this.tempConnectionData === undefined) return;
@@ -285,7 +285,7 @@ export class GraphEditorComponent implements AfterViewInit {
         if (event.evt.ctrlKey) {
           if (clickTarget.isSelected) {
             clickTarget.unselectShape();
-          } else {  
+          } else {
             clickTarget.selectShape();
           }
         }
@@ -404,12 +404,12 @@ export class GraphEditorComponent implements AfterViewInit {
 
       if (this.isSelectable(e.target))
 
-      //Check if target is grouped or not
-      if (e.target.group !== undefined && e.target.isSelected) {
-        this.isGrouped = true;
-      } else {
-        this.isGrouped = false;
-      }
+        //Check if target is grouped or not
+        if (e.target.group !== undefined && e.target.isSelected) {
+          this.isGrouped = true;
+        } else {
+          this.isGrouped = false;
+        }
 
       //Check if all the selected shapes are in the same group
       const selectedShapes = this.stage?.find('Shape').filter((x) => this.isSelectable(x) && x.isSelected);
@@ -521,25 +521,26 @@ export class GraphEditorComponent implements AfterViewInit {
         }
       }
 
-    this.stage.on('mouseup', (event) => {
-      // Clear the selection rectangle when the left mouse button is released
-      if (
-        event.evt.button === 0 &&
-        !this.selectedShape &&
-        this.selectRectangle
-      ) {
-        this.removeSelectionOnShapes();
-        const selectedShapes = this.getAllShapesInSelection();
+      this.stage.on('mouseup', (event) => {
+        // Clear the selection rectangle when the left mouse button is released
+        if (
+          event.evt.button === 0 &&
+          !this.selectedShape &&
+          this.selectRectangle
+        ) {
+          this.removeSelectionOnShapes();
+          const selectedShapes = this.getAllShapesInSelection();
 
-        selectedShapes.forEach((actShape) => {
-          if (this.isSelectable(actShape)){      
-            actShape.selectShape();
-          }
-        });
-        this.selectRectangle.destroy();
-        this.selectRectangle = undefined;
-        this.selectedLayer?.batchDraw();
-      }
+          selectedShapes.forEach((actShape) => {
+            if (this.isSelectable(actShape)) {
+              actShape.selectShape();
+            }
+          });
+          this.selectRectangle.destroy();
+          this.selectRectangle = undefined;
+          this.selectedLayer?.batchDraw();
+        }
+      });
     });
   }
 
